@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0a0c13" />
+  <title>Daily Ledger - 智能收支账本</title>
+  <style>
+    :root {
+      --bg: #0b0d14;
+      --card-bg: rgba(22, 26, 38, 0.72);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --input-bg: rgba(14, 17, 26, 0.85);
+      --input-border: rgba(255, 255, 255, 0.1);
+      --text-main: #f3f4f6;
+      --text-muted: #94a3b8;
+      --accent: #6366f1;
+      --accent-hover: #4f46e5;
+      --accent-glow: rgba(99, 102, 241, 0.25);
+      --danger: #f87171;
+      --danger-glow: rgba(248, 113, 113, 0.18);
+      --success: #10b981;
+      --success-glow: rgba(16, 185, 129, 0.18);
+      --control-h: 46px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 55%),
+        radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.07) 0px, transparent 55%);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 36px 16px 48px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 680px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* 顶部仪表盘 */
+    .dashboard {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 20px 22px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.55);
+    }
+
+    .dashboard-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .stats-badge {
+      font-size: 0.75rem;
+      color: var(--accent);
+      background: rgba(99, 102, 241, 0.12);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      padding: 3px 10px;
+      border-radius: 20px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .stat-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      padding: 14px 12px;
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .stat-label {
+      font-size: 0.74rem;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .val-income { color: var(--success); }
+    .val-expense { color: var(--danger); }
+    .val-balance { color: var(--text-main); }
+
+    /* 录入面板 */
+    .form-panel {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 20px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+
+    .type-switcher {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: var(--input-bg);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid var(--card-border);
+      height: 44px;
+    }
+
+    .type-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.92rem;
+      font-weight: 600;
+      border-radius: 9px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .type-btn.active.expense {
+      background: var(--danger-glow);
+      color: var(--danger);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .type-btn.active.income {
+      background: var(--success-glow);
+      color: var(--success);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .input-grid {
+      display: grid;
+      grid-template-columns: 2fr 1.2fr 1.4fr;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .input-field {
+      width: 100%;
+      height: var(--control-h);
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-main);
+      padding: 0 14px;
+      border-radius: 12px;
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type="number"] {
+      -moz-appearance: textfield;
+    }
+
+    .input-field:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    /* 日期选择器 */
+    .custom-datepicker-wrapper {
+      position: relative;
+      width: 100%;
+      height: var(--control-h);
+    }
+
+    .datepicker-trigger {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      height: 100%;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-main);
+      padding: 0 14px;
+      border-radius: 12px;
+      font-size: 0.92rem;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+
+    .datepicker-trigger:hover {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .datepicker-trigger.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .datepicker-trigger svg {
+      width: 17px;
+      height: 17px;
+      color: var(--text-muted);
+      margin-left: 8px;
+      flex-shrink: 0;
+    }
+
+    .btn-submit {
+      height: var(--control-h);
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      border: none;
+      color: white;
+      padding: 0 20px;
+      border-radius: 12px;
+      font-size: 0.96rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 14px var(--accent-glow);
+      transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-submit:hover {
+      opacity: 0.94;
+      transform: translateY(-1px);
+    }
+
+    .btn-submit:active {
+      transform: translateY(0);
+    }
+
+    /* --- 新增：搜索与筛选操作栏 --- */
+    .filter-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 18px;
+      padding: 16px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+
+    .search-box-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 16px;
+      height: 16px;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    .search-input {
+      width: 100%;
+      height: 42px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-main);
+      padding: 0 36px 0 38px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .clear-search-btn {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+      cursor: pointer;
+      display: none;
+      padding: 2px;
+      line-height: 1;
+    }
+
+    .clear-search-btn:hover {
+      color: var(--text-main);
+    }
+
+    /* 日期快捷筛选与范围筛选 */
+    .filter-controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex: 1;
+    }
+
+    .chip-btn {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chip-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-main);
+    }
+
+    .chip-btn.active {
+      background: var(--accent);
+      color: #ffffff;
+      border-color: var(--accent);
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    /* 自定义区间日期选择 */
+    .custom-range-box {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding-top: 4px;
+    }
+
+    .custom-range-box.show {
+      display: flex;
+    }
+
+    .range-date-input {
+      flex: 1;
+      height: 38px;
+      background: var(--input-bg);
+      border: 1px solid var(--input-border);
+      color: var(--text-main);
+      padding: 0 10px;
+      border-radius: 8px;
+      font-size: 0.84rem;
+      outline: none;
+      color-scheme: dark;
+    }
+
+    .range-date-input:focus {
+      border-color: var(--accent);
+    }
+
+    .range-separator {
+      color: var(--text-muted);
+      font-size: 0.8rem;
+    }
+
+    /* 记录明细列表 */
+    .list-section {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 4px;
+    }
+
+    .section-title {
+      font-size: 0.92rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .count-indicator {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .expense-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .expense-item {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 13px 18px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s ease;
+    }
+
+    .expense-item:hover {
+      border-color: rgba(255, 255, 255, 0.16);
+      transform: translateX(2px);
+    }
+
+    .item-left {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      overflow: hidden;
+      padding-right: 12px;
+    }
+
+    .item-name {
+      font-size: 0.98rem;
+      font-weight: 500;
+      color: var(--text-main);
+      word-break: break-all;
+    }
+
+    .item-name mark {
+      background: rgba(99, 102, 241, 0.35);
+      color: #fff;
+      padding: 1px 3px;
+      border-radius: 3px;
+    }
+
+    .item-date {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .item-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-shrink: 0;
+    }
+
+    .item-amount {
+      font-size: 1.05rem;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+    }
+
+    .item-amount.income { color: var(--success); }
+    .item-amount.expense { color: var(--text-main); }
+
+    .btn-delete {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.25rem;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 6px;
+      line-height: 1;
+      transition: all 0.15s ease;
+    }
+
+    .btn-delete:hover {
+      color: var(--danger);
+      background: var(--danger-glow);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 0;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* 遮罩与日历 */
+    .calendar-mask {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(3px);
+      z-index: 998;
+      display: none;
+    }
+
+    .calendar-mask.show { display: block; }
+
+    .calendar-popover {
+      position: absolute;
+      top: calc(100% + 8px);
+      right: 0;
+      width: 285px;
+      background: #141723;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7);
+      z-index: 999;
+      display: none;
+      animation: popoverFade 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes popoverFade {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .calendar-popover.show { display: block; }
+
+    .calendar-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .cal-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .cal-nav-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s ease;
+    }
+
+    .cal-nav-btn:hover { background: rgba(255, 255, 255, 0.12); }
+
+    .calendar-weekdays {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+    }
+
+    .calendar-days {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+
+    .cal-day {
+      aspect-ratio: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.82rem;
+      border-radius: 7px;
+      cursor: pointer;
+      color: var(--text-main);
+      user-select: none;
+      transition: all 0.15s ease;
+    }
+
+    .cal-day:hover:not(.empty):not(.selected) { background: rgba(255, 255, 255, 0.08); }
+    .cal-day.empty { cursor: default; }
+    .cal-day.today:not(.selected) {
+      color: var(--accent);
+      font-weight: 700;
+      box-shadow: inset 0 0 0 1px var(--accent);
+    }
+    .cal-day.selected {
+      background: linear-gradient(135deg, #6366f1, #4f46e5);
+      color: #ffffff;
+      font-weight: 600;
+      box-shadow: 0 2px 8px var(--accent-glow);
+    }
+
+    .cal-footer {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 10px;
+      padding-top: 8px;
+      border-top: 1px solid var(--card-border);
+    }
+
+    .cal-btn-today {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    /* 移动端专属适配 */
+    @media (max-width: 640px) {
+      body { padding: 16px 12px 32px; }
+      .input-grid { grid-template-columns: 1fr; gap: 10px; }
+      .input-field, .datepicker-trigger, .search-input { font-size: 16px; }
+      .calendar-popover {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        right: auto;
+        transform: translate(-50%, -50%);
+        width: 88%;
+        max-width: 320px;
+      }
+      .btn-delete { width: 36px; height: 36px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- 顶部数据看板（实时跟随筛选变动） -->
+    <header class="dashboard">
+      <div class="dashboard-header">
+        <h1 class="title">财务概览</h1>
+        <span class="stats-badge" id="filterStatusBadge">全部流水</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">总收入</div>
+          <div class="stat-value val-income" id="totalIncome">¥0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">总支出</div>
+          <div class="stat-value val-expense" id="totalExpense">¥0.00</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">结余</div>
+          <div class="stat-value val-balance" id="netBalance">¥0.00</div>
+        </div>
+      </div>
+    </header>
+
+    <!-- 录入面板 -->
+    <form class="form-panel" id="entryForm">
+      <div class="type-switcher">
+        <button type="button" class="type-btn active expense" id="typeExpenseBtn" onclick="setType('expense')">支出</button>
+        <button type="button" class="type-btn income" id="typeIncomeBtn" onclick="setType('income')">收入</button>
+      </div>
+
+      <div class="input-grid">
+        <input 
+          type="text" 
+          class="input-field" 
+          id="itemInput" 
+          placeholder="项目名称（如：午餐、地铁）" 
+          required 
+          autocomplete="off"
+        />
+        <input 
+          type="number" 
+          step="0.01" 
+          min="0.01" 
+          inputmode="decimal"
+          class="input-field" 
+          id="amountInput" 
+          placeholder="金额 (¥)" 
+          required 
+        />
+        
+        <!-- 日期选择器 -->
+        <div class="custom-datepicker-wrapper" id="datePickerContainer">
+          <input type="hidden" id="dateInput" />
+          <div class="datepicker-trigger" id="datePickerTrigger">
+            <span id="dateDisplayText">选择日期</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+              <line x1="16" y1="2" x2="16" y2="6"></line>
+              <line x1="8" y1="2" x2="8" y2="6"></line>
+              <line x1="3" y1="10" x2="21" y2="10"></line>
+            </svg>
+          </div>
+
+          <div class="calendar-popover" id="calendarPopover">
+            <div class="calendar-header">
+              <button type="button" class="cal-nav-btn" id="prevMonthBtn">&lt;</button>
+              <div class="cal-title" id="calMonthYearTitle"></div>
+              <button type="button" class="cal-nav-btn" id="nextMonthBtn">&gt;</button>
+            </div>
+            <div class="calendar-weekdays">
+              <span>日</span><span>一</span><span>二</span><span>三</span><span>四</span><span>五</span><span>六</span>
+            </div>
+            <div class="calendar-days" id="calendarDaysGrid"></div>
+            <div class="cal-footer">
+              <button type="button" class="cal-btn-today" id="selectTodayBtn">回到今天</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit" id="submitBtn">记录此笔支出</button>
+    </form>
+
+    <!-- 搜索与筛选工具栏 -->
+    <section class="filter-section">
+      <div class="search-box-wrapper">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+        <input 
+          type="text" 
+          class="search-input" 
+          id="keywordSearchInput" 
+          placeholder="搜索项目关键词..." 
+          autocomplete="off"
+        />
+        <button type="button" class="clear-search-btn" id="clearSearchBtn" title="清空输入">&times;</button>
+      </div>
+
+      <div class="filter-controls">
+        <div class="filter-chips">
+          <button type="button" class="chip-btn active" data-range="all">全部</button>
+          <button type="button" class="chip-btn" data-range="today">今天</button>
+          <button type="button" class="chip-btn" data-range="week">近7天</button>
+          <button type="button" class="chip-btn" data-range="month">本月</button>
+          <button type="button" class="chip-btn" data-range="custom">自定义范围</button>
+        </div>
+      </div>
+
+      <!-- 自定义日期起止区间 -->
+      <div class="custom-range-box" id="customRangeBox">
+        <input type="date" class="range-date-input" id="startDateInput" />
+        <span class="range-separator">至</span>
+        <input type="date" class="range-date-input" id="endDateInput" />
+      </div>
+    </section>
+
+    <!-- 历史明细流水 -->
+    <section class="list-section">
+      <div class="section-header">
+        <div class="section-title">明细流水</div>
+        <div class="count-indicator" id="recordsCountText">共 0 笔</div>
+      </div>
+      <ul class="expense-list" id="recordList">
+        <li class="empty-state">暂无记录，开启你的第一笔收支吧</li>
+      </ul>
+    </section>
+  </div>
+
+  <div class="calendar-mask" id="calendarMask"></div>
+
+  <script>
+    const STORAGE_KEY = 'daily_expenses_records';
+    let records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    let currentType = 'expense';
+
+    // 筛选与搜索状态
+    let searchQuery = '';
+    let dateFilterType = 'all'; // 'all', 'today', 'week', 'month', 'custom'
+    let customStartDate = '';
+    let customEndDate = '';
+
+    // DOM 元素引用
+    const form = document.getElementById('entryForm');
+    const itemInput = document.getElementById('itemInput');
+    const amountInput = document.getElementById('amountInput');
+    const submitBtn = document.getElementById('submitBtn');
+    const recordList = document.getElementById('recordList');
+    const totalIncomeDisplay = document.getElementById('totalIncome');
+    const totalExpenseDisplay = document.getElementById('totalExpense');
+    const netBalanceDisplay = document.getElementById('netBalance');
+    const typeExpenseBtn = document.getElementById('typeExpenseBtn');
+    const typeIncomeBtn = document.getElementById('typeIncomeBtn');
+    const filterStatusBadge = document.getElementById('filterStatusBadge');
+    const recordsCountText = document.getElementById('recordsCountText');
+
+    // 搜索 & 筛选 DOM
+    const keywordSearchInput = document.getElementById('keywordSearchInput');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+    const filterChips = document.querySelectorAll('.chip-btn');
+    const customRangeBox = document.getElementById('customRangeBox');
+    const startDateInput = document.getElementById('startDateInput');
+    const endDateInput = document.getElementById('endDateInput');
+
+    // 日期 DOM
+    const dateInput = document.getElementById('dateInput');
+    const dateDisplayText = document.getElementById('dateDisplayText');
+    const datePickerTrigger = document.getElementById('datePickerTrigger');
+    const calendarPopover = document.getElementById('calendarPopover');
+    const calendarMask = document.getElementById('calendarMask');
+    const calMonthYearTitle = document.getElementById('calMonthYearTitle');
+    const calendarDaysGrid = document.getElementById('calendarDaysGrid');
+    const prevMonthBtn = document.getElementById('prevMonthBtn');
+    const nextMonthBtn = document.getElementById('nextMonthBtn');
+    const selectTodayBtn = document.getElementById('selectTodayBtn');
+
+    // 日期工具函数
+    const realToday = new Date();
+    const formatYMD = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    let selectedDate = new Date();
+    let viewYear = selectedDate.getFullYear();
+    let viewMonth = selectedDate.getMonth();
+
+    function updateDateInputUI() {
+      const ymd = formatYMD(selectedDate);
+      dateInput.value = ymd;
+      const isToday = ymd === formatYMD(realToday);
+      dateDisplayText.textContent = isToday ? `今天 (${ymd.slice(5)})` : ymd;
+    }
+
+    function renderCalendar() {
+      calMonthYearTitle.textContent = `${viewYear}年 ${viewMonth + 1}月`;
+      calendarDaysGrid.innerHTML = '';
+
+      const firstDay = new Date(viewYear, viewMonth, 1).getDay();
+      const totalDays = new Date(viewYear, viewMonth + 1, 0).getDate();
+
+      for (let i = 0; i < firstDay; i++) {
+        const emptyCell = document.createElement('div');
+        emptyCell.className = 'cal-day empty';
+        calendarDaysGrid.appendChild(emptyCell);
+      }
+
+      const todayYMD = formatYMD(realToday);
+      const selectedYMD = formatYMD(selectedDate);
+
+      for (let d = 1; d <= totalDays; d++) {
+        const cell = document.createElement('div');
+        cell.className = 'cal-day';
+        cell.textContent = d;
+
+        const thisDateYMD = formatYMD(new Date(viewYear, viewMonth, d));
+        if (thisDateYMD === todayYMD) cell.classList.add('today');
+        if (thisDateYMD === selectedYMD) cell.classList.add('selected');
+
+        cell.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectedDate = new Date(viewYear, viewMonth, d);
+          updateDateInputUI();
+          closeCalendar();
+        });
+
+        calendarDaysGrid.appendChild(cell);
+      }
+    }
+
+    function isMobile() {
+      return window.innerWidth <= 640;
+    }
+
+    function openCalendar() {
+      viewYear = selectedDate.getFullYear();
+      viewMonth = selectedDate.getMonth();
+      renderCalendar();
+      calendarPopover.classList.add('show');
+      datePickerTrigger.classList.add('active');
+      if (isMobile()) {
+        calendarMask.classList.add('show');
+      }
+    }
+
+    function closeCalendar() {
+      calendarPopover.classList.remove('show');
+      calendarMask.classList.remove('show');
+      datePickerTrigger.classList.remove('active');
+    }
+
+    datePickerTrigger.addEventListener('click', (e) => {
+      e.stopPropagation();
+      calendarPopover.classList.contains('show') ? closeCalendar() : openCalendar();
+    });
+    calendarPopover.addEventListener('click', (e) => e.stopPropagation());
+    calendarMask.addEventListener('click', closeCalendar);
+
+    prevMonthBtn.addEventListener('click', () => {
+      viewMonth--;
+      if (viewMonth < 0) {
+        viewMonth = 11;
+        viewYear--;
+      }
+      renderCalendar();
+    });
+
+    nextMonthBtn.addEventListener('click', () => {
+      viewMonth++;
+      if (viewMonth > 11) {
+        viewMonth = 0;
+        viewYear++;
+      }
+      renderCalendar();
+    });
+
+    selectTodayBtn.addEventListener('click', () => {
+      selectedDate = new Date();
+      updateDateInputUI();
+      closeCalendar();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!document.getElementById('datePickerContainer').contains(e.target)) {
+        closeCalendar();
+      }
+    });
+
+    updateDateInputUI();
+
+    // 支出 / 收入 模式切换
+    window.setType = (type) => {
+      currentType = type;
+      if (type === 'expense') {
+        typeExpenseBtn.className = 'type-btn active expense';
+        typeIncomeBtn.className = 'type-btn income';
+        itemInput.placeholder = '项目名称（如：午餐、地铁）';
+        submitBtn.textContent = '记录此笔支出';
+      } else {
+        typeExpenseBtn.className = 'type-btn expense';
+        typeIncomeBtn.className = 'type-btn active income';
+        itemInput.placeholder = '项目名称（如：工资、兼职收入）';
+        submitBtn.textContent = '记录此笔收入';
+      }
+    };
+
+    const formatCurrency = (val) => `¥${val.toFixed(2)}`;
+    const saveToLocalStorage = () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    };
+
+    // --- 搜索与筛选核心逻辑 ---
+    keywordSearchInput.addEventListener('input', (e) => {
+      searchQuery = e.target.value.trim().toLowerCase();
+      clearSearchBtn.style.display = searchQuery ? 'block' : 'none';
+      render();
+    });
+
+    clearSearchBtn.addEventListener('click', () => {
+      keywordSearchInput.value = '';
+      searchQuery = '';
+      clearSearchBtn.style.display = 'none';
+      render();
+      keywordSearchInput.focus();
+    });
+
+    filterChips.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        filterChips.forEach((b) => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        dateFilterType = btn.getAttribute('data-range');
+
+        if (dateFilterType === 'custom') {
+          customRangeBox.classList.add('show');
+          if (!startDateInput.value) startDateInput.value = formatYMD(realToday);
+          if (!endDateInput.value) endDateInput.value = formatYMD(realToday);
+          customStartDate = startDateInput.value;
+          customEndDate = endDateInput.value;
+        } else {
+          customRangeBox.classList.remove('show');
+        }
+        render();
+      });
+    });
+
+    startDateInput.addEventListener('change', (e) => {
+      customStartDate = e.target.value;
+      render();
+    });
+
+    endDateInput.addEventListener('change', (e) => {
+      customEndDate = e.target.value;
+      render();
+    });
+
+    // 高亮关键词辅助
+    function highlightMatch(text, query) {
+      if (!query) return escapeHTML(text);
+      const safeQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const reg = new RegExp(`(${safeQuery})`, 'gi');
+      return escapeHTML(text).replace(reg, '<mark>$1</mark>');
+    }
+
+    // --- 核心渲染视图 ---
+    const render = () => {
+      // 1. 全量排序
+      records.sort((a, b) => new Date(b.date) - new Date(a.date) || b.id - a.id);
+
+      // 2. 日期与关键词双重过滤
+      const todayStr = formatYMD(realToday);
+
+      const filteredRecords = records.filter((item) => {
+        // 关键词过滤
+        if (searchQuery && !item.title.toLowerCase().includes(searchQuery)) {
+          return false;
+        }
+
+        // 日期过滤
+        if (dateFilterType === 'today') {
+          return item.date === todayStr;
+        } else if (dateFilterType === 'week') {
+          const itemTime = new Date(item.date).getTime();
+          const sevenDaysAgo = new Date(realToday.getTime() - 6 * 24 * 60 * 60 * 1000).setHours(0, 0, 0, 0);
+          return itemTime >= sevenDaysAgo;
+        } else if (dateFilterType === 'month') {
+          const itemYearMonth = item.date.slice(0, 7);
+          const currentYearMonth = todayStr.slice(0, 7);
+          return itemYearMonth === currentYearMonth;
+        } else if (dateFilterType === 'custom') {
+          if (customStartDate && item.date < customStartDate) return false;
+          if (customEndDate && item.date > customEndDate) return false;
+          return true;
+        }
+
+        return true; // 'all'
+      });
+
+      // 3. 统计看板数值联动计算
+      let filteredIncome = 0;
+      let filteredExpense = 0;
+
+      filteredRecords.forEach((item) => {
+        const type = item.type || 'expense';
+        if (type === 'income') {
+          filteredIncome += item.amount;
+        } else {
+          filteredExpense += item.amount;
+        }
+      });
+
+      const netBalance = filteredIncome - filteredExpense;
+      totalIncomeDisplay.textContent = formatCurrency(filteredIncome);
+      totalExpenseDisplay.textContent = formatCurrency(filteredExpense);
+      netBalanceDisplay.textContent = formatCurrency(netBalance);
+      netBalanceDisplay.style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
+
+      // 4. 更新看板筛选状态徽章文案
+      let statusText = '全部流水';
+      if (dateFilterType === 'today') statusText = '今日流水';
+      else if (dateFilterType === 'week') statusText = '近7天';
+      else if (dateFilterType === 'month') statusText = '本月';
+      else if (dateFilterType === 'custom') statusText = '自定义期间';
+
+      if (searchQuery) statusText += ` · 包含"${searchQuery}"`;
+      filterStatusBadge.textContent = statusText;
+      recordsCountText.textContent = `共 ${filteredRecords.length} 笔`;
+
+      // 5. 渲染明细列表
+      if (filteredRecords.length === 0) {
+        recordList.innerHTML = '<li class="empty-state">没有找到符合条件的收支记录</li>';
+        return;
+      }
+
+      recordList.innerHTML = filteredRecords
+        .map((item) => {
+          const type = item.type || 'expense';
+          const isIncome = type === 'income';
+          const prefix = isIncome ? '+' : '-';
+          const amountClass = isIncome ? 'item-amount income' : 'item-amount expense';
+
+          return `
+            <li class="expense-item">
+              <div class="item-left">
+                <div class="item-name">${highlightMatch(item.title, searchQuery)}</div>
+                <div class="item-date">${item.date}</div>
+              </div>
+              <div class="item-right">
+                <div class="${amountClass}">${prefix}${formatCurrency(item.amount)}</div>
+                <button class="btn-delete" onclick="deleteRecord(${item.id})" title="删除此记录">&times;</button>
+              </div>
+            </li>
+          `;
+        })
+        .join('');
+    };
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+
+      const title = itemInput.value.trim();
+      const amount = parseFloat(amountInput.value);
+      const date = dateInput.value;
+
+      if (!title || isNaN(amount) || amount <= 0 || !date) return;
+
+      const newRecord = {
+        id: Date.now(),
+        type: currentType,
+        title,
+        amount,
+        date
+      };
+
+      records.push(newRecord);
+      saveToLocalStorage();
+      render();
+
+      itemInput.value = '';
+      amountInput.value = '';
+      if (isMobile()) itemInput.blur();
+    });
+
+    window.deleteRecord = (id) => {
+      records = records.filter((item) => item.id !== id);
+      saveToLocalStorage();
+      render();
+    };
+
+    render();
+  </script>
+</body>
+</html>
