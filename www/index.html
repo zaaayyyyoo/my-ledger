@@ -2,24 +2,23 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <!-- viewport-fit=cover 确保网页画面直接铺满刘海与底部小白条区域 -->
+  <!-- viewport-fit=cover 确保视图延伸穿透顶部状态栏与底部小白条 -->
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0b0d14" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <title>Daily Ledger - 智能收支账本</title>
+  <title>Daily Ledger</title>
   <style>
     :root {
       --bg: #0b0d14;
-      /* 移除昂贵的 backdrop-filter，改用高对比度高性能暗色实色 */
       --card-bg: #151824;
       --card-border: #222738;
       --input-bg: #0e111a;
       --input-border: #262c40;
       --text-main: #f3f4f6;
       --text-muted: #94a3b8;
+      --text-dim: #475569;
       --accent: #6366f1;
-      --accent-glow: rgba(99, 102, 241, 0.25);
       --danger: #f87171;
       --danger-bg: rgba(248, 113, 113, 0.12);
       --success: #10b981;
@@ -33,9 +32,9 @@
       padding: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", sans-serif;
       -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
     }
 
-    /* 解决小白条偏色：html 与 body 统一底色并铺满安全区域 */
     html {
       background-color: var(--bg);
       min-height: 100%;
@@ -47,15 +46,11 @@
       min-height: 100vh;
       display: flex;
       justify-content: center;
-      /* 完美沉浸全面屏上下安全区 */
-      padding-top: calc(16px + env(safe-area-inset-top));
-      padding-bottom: calc(24px + env(safe-area-inset-bottom));
-      padding-left: calc(16px + env(safe-area-inset-left));
-      padding-right: calc(16px + env(safe-area-inset-right));
+      /* 顶部状态栏与底部手势区域安全边距 */
+      padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
       overflow-x: hidden;
-      /* 启用移动端硬件加速 */
-      transform: translateZ(0);
       -webkit-font-smoothing: antialiased;
+      contain: layout paint;
     }
 
     .container {
@@ -64,6 +59,7 @@
       display: flex;
       flex-direction: column;
       gap: 16px;
+      will-change: transform;
     }
 
     /* 顶部仪表盘 */
@@ -72,7 +68,7 @@
       border: 1px solid var(--card-border);
       border-radius: 16px;
       padding: 18px 20px;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      contain: content;
     }
 
     .dashboard-header {
@@ -139,7 +135,7 @@
       display: flex;
       flex-direction: column;
       gap: 14px;
-      position: relative;
+      contain: content;
     }
 
     .type-switcher {
@@ -163,7 +159,6 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      transition: background-color 0.15s ease;
     }
 
     .type-btn.active.expense {
@@ -191,7 +186,7 @@
       color: var(--text-main);
       padding: 0 14px;
       border-radius: 12px;
-      font-size: 16px; /* 移动端严禁低于 16px */
+      font-size: 16px;
       outline: none;
     }
 
@@ -208,7 +203,6 @@
       border-color: var(--accent);
     }
 
-    /* 日期选择器触发条 */
     .custom-datepicker-wrapper {
       position: relative;
       width: 100%;
@@ -257,8 +251,7 @@
     }
 
     .btn-submit:active {
-      opacity: 0.85;
-      transform: scale(0.99);
+      opacity: 0.88;
     }
 
     /* 搜索与筛选工具栏 */
@@ -270,6 +263,7 @@
       display: flex;
       flex-direction: column;
       gap: 12px;
+      contain: content;
     }
 
     .search-box-wrapper {
@@ -366,7 +360,7 @@
       color-scheme: dark;
     }
 
-    /* 记录明细列表 */
+    /* 明细流水列表 */
     .list-section {
       display: flex;
       flex-direction: column;
@@ -396,9 +390,12 @@
       display: flex;
       flex-direction: column;
       gap: 8px;
+      will-change: transform;
     }
 
     .expense-item {
+      content-visibility: auto;
+      contain-intrinsic-size: 0 54px;
       background: var(--card-bg);
       border: 1px solid var(--card-border);
       border-radius: 14px;
@@ -477,15 +474,13 @@
       font-size: 0.88rem;
     }
 
-    /* -------------------------------------------------------------
-       解决 Bug 1：重构日历弹窗！绝不模糊、绝对顶层、无死锁
-    ------------------------------------------------------------- */
+    /* 模态日历面板（固定 42 格防抖设计） */
     .calendar-container-modal {
       position: fixed;
       inset: 0;
-      z-index: 99999; /* 保证最高层级，不被任何 DOM 遮盖 */
+      z-index: 99999;
       display: none;
-      align-items: flex-end; /* 移动端从底部升起，单手操作最方便 */
+      align-items: flex-end;
       justify-content: center;
     }
 
@@ -493,7 +488,6 @@
       display: flex;
     }
 
-    /* 黑色半透明背景点击区域（不加 filter: blur，杜绝性能崩溃与模糊 bug） */
     .calendar-backdrop {
       position: absolute;
       inset: 0;
@@ -508,14 +502,8 @@
       border-top: 1px solid #2e354d;
       border-radius: 20px 20px 0 0;
       padding: 20px 18px calc(20px + env(safe-area-inset-bottom)) 18px;
-      box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.8);
       z-index: 100000;
-      animation: slideUp 0.18s ease-out;
-    }
-
-    @keyframes slideUp {
-      from { transform: translateY(100%); }
-      to { transform: translateY(0); }
+      transform: translateZ(0);
     }
 
     .calendar-header {
@@ -553,14 +541,16 @@
       margin-bottom: 8px;
     }
 
+    /* 6 行固定 40px 高度，彻底固定总高度 */
     .calendar-days {
       display: grid;
       grid-template-columns: repeat(7, 1fr);
+      grid-template-rows: repeat(6, 40px);
       gap: 6px;
+      height: 270px;
     }
 
     .cal-day {
-      aspect-ratio: 1;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -571,11 +561,13 @@
       user-select: none;
     }
 
-    .cal-day:active:not(.empty) {
-      background: rgba(255, 255, 255, 0.15);
+    .cal-day.other-month {
+      color: var(--text-dim);
     }
 
-    .cal-day.empty { cursor: default; }
+    .cal-day:active:not(.selected) {
+      background: rgba(255, 255, 255, 0.12);
+    }
 
     .cal-day.today:not(.selected) {
       color: var(--accent);
@@ -608,7 +600,6 @@
       border-radius: 8px;
     }
 
-    /* 桌面 PC 端微调适配 */
     @media (min-width: 641px) {
       .calendar-container-modal {
         align-items: center;
@@ -617,15 +608,9 @@
         border-radius: 20px;
         border: 1px solid #2e354d;
         padding-bottom: 20px;
-        animation: popScale 0.15s ease-out;
-      }
-      @keyframes popScale {
-        from { opacity: 0; transform: scale(0.95); }
-        to { opacity: 1; transform: scale(1); }
       }
     }
 
-    /* 移动端专属布局 */
     @media (max-width: 640px) {
       .input-grid {
         grid-template-columns: 1fr;
@@ -637,7 +622,6 @@
 <body>
 
   <div class="container">
-    <!-- 顶部数据看板 -->
     <header class="dashboard">
       <div class="dashboard-header">
         <h1 class="title">财务概览</h1>
@@ -659,11 +643,10 @@
       </div>
     </header>
 
-    <!-- 录入面板 -->
     <form class="form-panel" id="entryForm">
-      <div class="type-switcher">
-        <button type="button" class="type-btn active expense" id="typeExpenseBtn" onclick="setType('expense')">支出</button>
-        <button type="button" class="type-btn income" id="typeIncomeBtn" onclick="setType('income')">收入</button>
+      <div class="type-switcher" id="typeSwitcher">
+        <button type="button" class="type-btn active expense" data-type="expense">支出</button>
+        <button type="button" class="type-btn income" data-type="income">收入</button>
       </div>
 
       <div class="input-grid">
@@ -686,7 +669,6 @@
           required 
         />
         
-        <!-- 日期触发条 -->
         <div class="custom-datepicker-wrapper">
           <input type="hidden" id="dateInput" />
           <div class="datepicker-trigger" id="datePickerTrigger">
@@ -704,7 +686,6 @@
       <button type="submit" class="btn-submit" id="submitBtn">记录此笔支出</button>
     </form>
 
-    <!-- 搜索与筛选工具栏 -->
     <section class="filter-section">
       <div class="search-box-wrapper">
         <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -721,7 +702,7 @@
         <button type="button" class="clear-search-btn" id="clearSearchBtn" title="清空">&times;</button>
       </div>
 
-      <div class="filter-controls">
+      <div class="filter-controls" id="filterChipsContainer">
         <button type="button" class="chip-btn active" data-range="all">全部</button>
         <button type="button" class="chip-btn" data-range="today">今天</button>
         <button type="button" class="chip-btn" data-range="week">近7天</button>
@@ -736,7 +717,6 @@
       </div>
     </section>
 
-    <!-- 历史明细流水 -->
     <section class="list-section">
       <div class="section-header">
         <div class="section-title">明细流水</div>
@@ -748,7 +728,7 @@
     </section>
   </div>
 
-  <!-- 重构后的专属模态日历（彻底杜绝模糊死锁） -->
+  <!-- 沉浸式防抖模态日历 -->
   <div class="calendar-container-modal" id="calendarModal">
     <div class="calendar-backdrop" id="calendarBackdrop"></div>
     <div class="calendar-panel">
@@ -769,8 +749,30 @@
   </div>
 
   <script>
+    'use strict';
+
+    // 1. Android 原生沉浸式状态栏适配（基于 Capacitor 原生通道）
+    window.addEventListener('DOMContentLoaded', async () => {
+      if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar) {
+        const { StatusBar } = window.Capacitor.Plugins;
+        try {
+          await StatusBar.setOverlaysWebView({ overlay: true });
+          await StatusBar.setBackgroundColor({ color: '#00000000' });
+          await StatusBar.setStyle({ style: 'DARK' });
+        } catch (err) {
+          console.warn('StatusBar plugin not ready:', err);
+        }
+      }
+    });
+
+    // 2. 核心状态管理
     const STORAGE_KEY = 'daily_expenses_records';
-    let records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    let records = [];
+    try {
+      records = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+    } catch (e) {
+      records = [];
+    }
     let currentType = 'expense';
 
     let searchQuery = '';
@@ -778,7 +780,7 @@
     let customStartDate = '';
     let customEndDate = '';
 
-    // DOM 引用
+    // 3. DOM 引用
     const form = document.getElementById('entryForm');
     const itemInput = document.getElementById('itemInput');
     const amountInput = document.getElementById('amountInput');
@@ -787,20 +789,17 @@
     const totalIncomeDisplay = document.getElementById('totalIncome');
     const totalExpenseDisplay = document.getElementById('totalExpense');
     const netBalanceDisplay = document.getElementById('netBalance');
-    const typeExpenseBtn = document.getElementById('typeExpenseBtn');
-    const typeIncomeBtn = document.getElementById('typeIncomeBtn');
+    const typeSwitcher = document.getElementById('typeSwitcher');
     const filterStatusBadge = document.getElementById('filterStatusBadge');
     const recordsCountText = document.getElementById('recordsCountText');
 
-    // 搜索筛选 DOM
     const keywordSearchInput = document.getElementById('keywordSearchInput');
     const clearSearchBtn = document.getElementById('clearSearchBtn');
-    const filterChips = document.querySelectorAll('.chip-btn');
+    const filterChipsContainer = document.getElementById('filterChipsContainer');
     const customRangeBox = document.getElementById('customRangeBox');
     const startDateInput = document.getElementById('startDateInput');
     const endDateInput = document.getElementById('endDateInput');
 
-    // 日历 DOM
     const dateInput = document.getElementById('dateInput');
     const dateDisplayText = document.getElementById('dateDisplayText');
     const datePickerTrigger = document.getElementById('datePickerTrigger');
@@ -813,6 +812,7 @@
     const nextMonthBtn = document.getElementById('nextMonthBtn');
     const selectTodayBtn = document.getElementById('selectTodayBtn');
 
+    // 4. 日期工具逻辑
     const realToday = new Date();
     const formatYMD = (d) => {
       const y = d.getFullYear();
@@ -832,40 +832,84 @@
       dateDisplayText.textContent = isToday ? `今天 (${ymd.slice(5)})` : ymd;
     }
 
+    // 5. 渲染恒定 42 单元格日历（6 行 × 7 列）
     function renderCalendar() {
       calMonthYearTitle.textContent = `${viewYear}年 ${viewMonth + 1}月`;
       calendarDaysGrid.innerHTML = '';
 
-      const firstDay = new Date(viewYear, viewMonth, 1).getDay();
-      const totalDays = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const firstDayOfWeek = new Date(viewYear, viewMonth, 1).getDay();
+      const daysInCurrentMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+      const daysInPrevMonth = new Date(viewYear, viewMonth, 0).getDate();
 
-      for (let i = 0; i < firstDay; i++) {
-        const emptyCell = document.createElement('div');
-        emptyCell.className = 'cal-day empty';
-        calendarDaysGrid.appendChild(emptyCell);
-      }
-
+      const fragment = document.createDocumentFragment();
       const todayYMD = formatYMD(realToday);
       const selectedYMD = formatYMD(selectedDate);
 
-      for (let d = 1; d <= totalDays; d++) {
+      // 上月末尾填补
+      for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+        const dayNum = daysInPrevMonth - i;
+        const cellDate = new Date(viewYear, viewMonth - 1, dayNum);
+        const cellYMD = formatYMD(cellDate);
+
+        const cell = document.createElement('div');
+        cell.className = 'cal-day other-month';
+        cell.textContent = dayNum;
+        cell.dataset.date = cellYMD;
+
+        if (cellYMD === todayYMD) cell.classList.add('today');
+        if (cellYMD === selectedYMD) cell.classList.add('selected');
+        fragment.appendChild(cell);
+      }
+
+      // 当月天数
+      for (let d = 1; d <= daysInCurrentMonth; d++) {
+        const cellDate = new Date(viewYear, viewMonth, d);
+        const cellYMD = formatYMD(cellDate);
+
         const cell = document.createElement('div');
         cell.className = 'cal-day';
         cell.textContent = d;
+        cell.dataset.date = cellYMD;
 
-        const thisDateYMD = formatYMD(new Date(viewYear, viewMonth, d));
-        if (thisDateYMD === todayYMD) cell.classList.add('today');
-        if (thisDateYMD === selectedYMD) cell.classList.add('selected');
-
-        cell.addEventListener('click', () => {
-          selectedDate = new Date(viewYear, viewMonth, d);
-          updateDateInputUI();
-          closeCalendar();
-        });
-
-        calendarDaysGrid.appendChild(cell);
+        if (cellYMD === todayYMD) cell.classList.add('today');
+        if (cellYMD === selectedYMD) cell.classList.add('selected');
+        fragment.appendChild(cell);
       }
+
+      // 下月开头填补至 42 格
+      const currentCount = firstDayOfWeek + daysInCurrentMonth;
+      const remainingCells = 42 - currentCount;
+
+      for (let nextD = 1; nextD <= remainingCells; nextD++) {
+        const cellDate = new Date(viewYear, viewMonth + 1, nextD);
+        const cellYMD = formatYMD(cellDate);
+
+        const cell = document.createElement('div');
+        cell.className = 'cal-day other-month';
+        cell.textContent = nextD;
+        cell.dataset.date = cellYMD;
+
+        if (cellYMD === todayYMD) cell.classList.add('today');
+        if (cellYMD === selectedYMD) cell.classList.add('selected');
+        fragment.appendChild(cell);
+      }
+
+      calendarDaysGrid.appendChild(fragment);
     }
+
+    // 事件委托：日历单元格点击
+    calendarDaysGrid.addEventListener('click', (e) => {
+      const target = e.target.closest('.cal-day');
+      if (!target || !target.dataset.date) return;
+
+      const [y, m, d] = target.dataset.date.split('-').map(Number);
+      selectedDate = new Date(y, m - 1, d);
+      viewYear = y;
+      viewMonth = m - 1;
+
+      updateDateInputUI();
+      closeCalendar();
+    });
 
     function openCalendar() {
       viewYear = selectedDate.getFullYear();
@@ -883,8 +927,7 @@
     closeCalBtn.addEventListener('click', closeCalendar);
 
     prevMonthBtn.addEventListener('click', () => {
-      viewMonth--;
-      if (viewMonth < 0) {
+      if (--viewMonth < 0) {
         viewMonth = 11;
         viewYear--;
       }
@@ -892,8 +935,7 @@
     });
 
     nextMonthBtn.addEventListener('click', () => {
-      viewMonth++;
-      if (viewMonth > 11) {
+      if (++viewMonth > 11) {
         viewMonth = 0;
         viewYear++;
       }
@@ -902,38 +944,52 @@
 
     selectTodayBtn.addEventListener('click', () => {
       selectedDate = new Date();
+      viewYear = selectedDate.getFullYear();
+      viewMonth = selectedDate.getMonth();
       updateDateInputUI();
       closeCalendar();
     });
 
     updateDateInputUI();
 
-    // 模式切换
-    window.setType = (type) => {
+    // 6. 模式切换
+    typeSwitcher.addEventListener('click', (e) => {
+      const btn = e.target.closest('.type-btn');
+      if (!btn) return;
+      const type = btn.dataset.type;
+      if (type === currentType) return;
       currentType = type;
+
+      typeSwitcher.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
       if (type === 'expense') {
-        typeExpenseBtn.className = 'type-btn active expense';
-        typeIncomeBtn.className = 'type-btn income';
         itemInput.placeholder = '项目名称（如：午餐、地铁）';
         submitBtn.textContent = '记录此笔支出';
       } else {
-        typeExpenseBtn.className = 'type-btn expense';
-        typeIncomeBtn.className = 'type-btn active income';
         itemInput.placeholder = '项目名称（如：工资、兼职收入）';
         submitBtn.textContent = '记录此笔收入';
       }
-    };
+    });
 
-    const formatCurrency = (val) => `¥${val.toFixed(2)}`;
+    const currencyFormatter = new Intl.NumberFormat('zh-CN', {
+      style: 'currency',
+      currency: 'CNY',
+      minimumFractionDigits: 2
+    });
+    const formatCurrency = (val) => currencyFormatter.format(val);
+
     const saveToLocalStorage = () => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
     };
 
-    // 搜索与筛选
+    // 7. 搜索与筛选交互
+    let rafId = null;
     keywordSearchInput.addEventListener('input', (e) => {
       searchQuery = e.target.value.trim().toLowerCase();
       clearSearchBtn.style.display = searchQuery ? 'block' : 'none';
-      render();
+      if (rafId) cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(render);
     });
 
     clearSearchBtn.addEventListener('click', () => {
@@ -943,24 +999,25 @@
       render();
     });
 
-    filterChips.forEach((btn) => {
-      btn.addEventListener('click', () => {
-        filterChips.forEach((b) => b.classList.remove('active'));
-        btn.classList.add('active');
+    filterChipsContainer.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip-btn');
+      if (!btn) return;
 
-        dateFilterType = btn.getAttribute('data-range');
+      filterChipsContainer.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
 
-        if (dateFilterType === 'custom') {
-          customRangeBox.classList.add('show');
-          if (!startDateInput.value) startDateInput.value = formatYMD(realToday);
-          if (!endDateInput.value) endDateInput.value = formatYMD(realToday);
-          customStartDate = startDateInput.value;
-          customEndDate = endDateInput.value;
-        } else {
-          customRangeBox.classList.remove('show');
-        }
-        render();
-      });
+      dateFilterType = btn.dataset.range;
+
+      if (dateFilterType === 'custom') {
+        customRangeBox.classList.add('show');
+        if (!startDateInput.value) startDateInput.value = formatYMD(realToday);
+        if (!endDateInput.value) endDateInput.value = formatYMD(realToday);
+        customStartDate = startDateInput.value;
+        customEndDate = endDateInput.value;
+      } else {
+        customRangeBox.classList.remove('show');
+      }
+      render();
     });
 
     startDateInput.addEventListener('change', (e) => {
@@ -980,6 +1037,7 @@
       return escapeHTML(text).replace(reg, '<mark>$1</mark>');
     }
 
+    // 8. 核心视图渲染
     const render = () => {
       records.sort((a, b) => new Date(b.date) - new Date(a.date) || b.id - a.id);
       const todayStr = formatYMD(realToday);
@@ -988,7 +1046,6 @@
         if (searchQuery && !item.title.toLowerCase().includes(searchQuery)) {
           return false;
         }
-
         if (dateFilterType === 'today') {
           return item.date === todayStr;
         } else if (dateFilterType === 'week') {
@@ -1002,21 +1059,20 @@
           if (customEndDate && item.date > customEndDate) return false;
           return true;
         }
-
         return true;
       });
 
       let filteredIncome = 0;
       let filteredExpense = 0;
 
-      filteredRecords.forEach((item) => {
-        const type = item.type || 'expense';
-        if (type === 'income') {
+      for (let i = 0, len = filteredRecords.length; i < len; i++) {
+        const item = filteredRecords[i];
+        if (item.type === 'income') {
           filteredIncome += item.amount;
         } else {
           filteredExpense += item.amount;
         }
-      });
+      }
 
       const netBalance = filteredIncome - filteredExpense;
       totalIncomeDisplay.textContent = formatCurrency(filteredIncome);
@@ -1039,28 +1095,38 @@
         return;
       }
 
-      recordList.innerHTML = filteredRecords
-        .map((item) => {
-          const type = item.type || 'expense';
-          const isIncome = type === 'income';
-          const prefix = isIncome ? '+' : '-';
-          const amountClass = isIncome ? 'item-amount income' : 'item-amount expense';
+      let html = '';
+      for (let i = 0, len = filteredRecords.length; i < len; i++) {
+        const item = filteredRecords[i];
+        const isIncome = item.type === 'income';
+        const prefix = isIncome ? '+' : '-';
+        const amountClass = isIncome ? 'item-amount income' : 'item-amount expense';
 
-          return `
-            <li class="expense-item">
-              <div class="item-left">
-                <div class="item-name">${highlightMatch(item.title, searchQuery)}</div>
-                <div class="item-date">${item.date}</div>
-              </div>
-              <div class="item-right">
-                <div class="${amountClass}">${prefix}${formatCurrency(item.amount)}</div>
-                <button class="btn-delete" onclick="deleteRecord(${item.id})" title="删除">&times;</button>
-              </div>
-            </li>
-          `;
-        })
-        .join('');
+        html += `
+          <li class="expense-item">
+            <div class="item-left">
+              <div class="item-name">${highlightMatch(item.title, searchQuery)}</div>
+              <div class="item-date">${item.date}</div>
+            </div>
+            <div class="item-right">
+              <div class="${amountClass}">${prefix}${formatCurrency(item.amount)}</div>
+              <button class="btn-delete" data-action="delete" data-id="${item.id}" title="删除">&times;</button>
+            </div>
+          </li>
+        `;
+      }
+      recordList.innerHTML = html;
     };
+
+    // 9. 事件委托：删除记录
+    recordList.addEventListener('click', (e) => {
+      const deleteBtn = e.target.closest('[data-action="delete"]');
+      if (!deleteBtn) return;
+      const id = parseInt(deleteBtn.dataset.id, 10);
+      records = records.filter(item => item.id !== id);
+      saveToLocalStorage();
+      render();
+    });
 
     function escapeHTML(str) {
       return str.replace(/[&<>'"]/g, 
@@ -1068,6 +1134,7 @@
       );
     }
 
+    // 10. 提交表单
     form.addEventListener('submit', (e) => {
       e.preventDefault();
 
@@ -1077,15 +1144,14 @@
 
       if (!title || isNaN(amount) || amount <= 0 || !date) return;
 
-      const newRecord = {
+      records.push({
         id: Date.now(),
         type: currentType,
         title,
         amount,
         date
-      };
+      });
 
-      records.push(newRecord);
       saveToLocalStorage();
       render();
 
@@ -1094,12 +1160,7 @@
       itemInput.blur();
     });
 
-    window.deleteRecord = (id) => {
-      records = records.filter((item) => item.id !== id);
-      saveToLocalStorage();
-      render();
-    };
-
+    // 首屏渲染
     render();
   </script>
 </body>

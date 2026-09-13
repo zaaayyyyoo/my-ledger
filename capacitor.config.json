@@ -1,5 +1,11 @@
 {
   "appId": "com.wonder.ledger",
   "appName": "记账",
-  "webDir": "www"
+  "webDir": "www",
+  "plugins": {
+    "StatusBar": {
+      "overlaysWebView": true,
+      "style": "DARK"
+    }
+  }
 }
