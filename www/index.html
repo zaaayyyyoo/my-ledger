@@ -640,6 +640,13 @@
     }
 
     @media (max-width: 640px) {
+      /* Android 边到边模式下，部分 WebView 不提供 safe-area-inset-top；
+         用 32px 作为状态栏安全兜底，避免首张卡片顶到状态栏。 */
+      body {
+        padding-top: max(32px, env(safe-area-inset-top));
+        padding-bottom: max(28px, env(safe-area-inset-bottom));
+      }
+
       .input-grid {
         grid-template-columns: 1fr;
         gap: 10px;
