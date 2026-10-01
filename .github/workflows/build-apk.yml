@@ -71,16 +71,48 @@ jobs:
           # 出现独立的灰/黑色背景。
           candidates = list(Path('android/app/src/main/java').rglob('MainActivity.java'))
           if not candidates:
-              raise SystemExit('MainActivity.java not found')
+              candidates = list(Path('android/app/src/main/java').rglob('MainActivity.kt'))
+          if not candidates:
+              raise SystemExit('MainActivity.java/MainActivity.kt not found')
 
           path = candidates[0]
           text = path.read_text(encoding='utf-8')
-          m = re.search(r'^package\\s+([\\w.]+);', text, re.M)
+          m = re.search(r'^\s*package\s+([\w.]+)', text, re.M)
           if not m:
-              raise SystemExit('Cannot detect MainActivity package')
+              raise SystemExit(f'Cannot detect MainActivity package in {path}')
           package_name = m.group(1)
 
-          code = f'''package {package_name};
+          if path.suffix == '.kt':
+              code = f'''package {package_name}
+
+          import android.graphics.Color
+          import android.os.Build
+          import android.os.Bundle
+          import androidx.core.view.WindowCompat
+          import com.getcapacitor.BridgeActivity
+
+          class MainActivity : BridgeActivity() {{
+              override fun onCreate(savedInstanceState: Bundle?) {{
+                  super.onCreate(savedInstanceState)
+
+                  val window = window
+                  WindowCompat.setDecorFitsSystemWindows(window, false)
+                  window.statusBarColor = Color.TRANSPARENT
+                  window.navigationBarColor = Color.TRANSPARENT
+
+                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {{
+                      window.isNavigationBarContrastEnforced = false
+                  }}
+
+                  WindowCompat.getInsetsController(window, window.decorView)?.apply {{
+                      isAppearanceLightStatusBars = false
+                      isAppearanceLightNavigationBars = false
+                  }}
+              }}
+          }}
+          '''
+          else:
+              code = f'''package {package_name};
 
           import android.graphics.Color;
           import android.os.Build;
@@ -116,7 +148,7 @@ jobs:
           }}
           '''
           path.write_text(code, encoding='utf-8')
-          print(f'Configured immersive system bars: {{path}}')
+          print(f'Configured immersive system bars: {path}')
           PY
 
       - name: 赋予 Gradle 执行权限并构建 Debug APK
