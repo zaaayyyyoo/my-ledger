@@ -2,6 +2,7 @@
   "appId": "com.wonder.ledger",
   "appName": "记账",
   "webDir": "www",
+  "bundledWebRuntime": false,
   "plugins": {
     "StatusBar": {
       "overlaysWebView": true,

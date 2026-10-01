@@ -1,0 +1,11 @@
+node_modules/
+frontend/node_modules/
+frontend/dist/
+www/
+android/
+backend/target/
+*.db
+*.db-shm
+*.db-wal
+.env
+.DS_Store
