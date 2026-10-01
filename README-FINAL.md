@@ -59,3 +59,15 @@ docker compose up -d --build
 ```
 
 服务健康检查路径为 `/api/health`，SQLite 数据库存储在命名卷 `ledger-data` 中。生产部署请在反向代理配置 HTTPS，并限制 API 网络访问；当前示例 API 未实现账号认证，适合个人或可信网络自托管，不应直接作为多用户公网服务开放。
+
+
+## Release APK 签名
+
+GitHub Actions Release 构建使用一把长期保存的 PKCS#12 发布密钥。将 keystore 转成 Base64 后，把以下值添加到仓库 Settings → Secrets and variables → Actions → Repository secrets：
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+不要将 keystore 或密码提交到 Git。工作流用递增的 GitHub Actions run number 设置 Android `versionCode`，并生成 `2.2.<run number>` 的 `versionName`。普通本地 Debug APK 与 Release APK 签名不同；用于覆盖安装的 APK 请下载 Actions 的 `daily-ledger-release-apk` artifact。

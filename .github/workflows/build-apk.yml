@@ -63,6 +63,52 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: 配置发布签名和版本号
+        shell: bash
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          ANDROID_KEYSTORE_PATH: ${{ runner.temp }}/ledger-release.p12
+          APP_VERSION_CODE: ${{ github.run_number }}
+          APP_VERSION_NAME: 2.2.${{ github.run_number }}
+        run: |
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Missing ANDROID_KEYSTORE_BASE64 secret"; exit 1; }
+          test -n "$ANDROID_KEYSTORE_PASSWORD" || { echo "Missing ANDROID_KEYSTORE_PASSWORD secret"; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "Missing ANDROID_KEY_ALIAS secret"; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing ANDROID_KEY_PASSWORD secret"; exit 1; }
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+
+          path = Path('android/app/build.gradle')
+          text = path.read_text(encoding='utf-8')
+          text, code_count = re.subn(r'versionCode\\s+1\\b', f"versionCode {os.environ['APP_VERSION_CODE']}", text, count=1)
+          text, name_count = re.subn(r"""versionName\\s+['"]1\\.0['"]""", f'''versionName "{os.environ['APP_VERSION_NAME']}"''', text, count=1)
+          if code_count != 1 or name_count != 1:
+              raise SystemExit('Could not set Android versionCode/versionName in generated Gradle file')
+          signing = """    signingConfigs {
+                  release {
+                      storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                      storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                      keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+                  }
+              }
+
+          """
+          text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
+          build_types = text.index('    buildTypes {')
+          head, tail = text[:build_types], text[build_types:]
+          tail, count = re.subn(r'(        release\\s*\\{)', r'\\1\\n            signingConfig signingConfigs.release', tail, count=1)
+          if count != 1:
+              raise SystemExit('Could not attach release signing config')
+          path.write_text(head + tail, encoding='utf-8')
+          PY
+
       - name: 配置 Android 全屏沉浸式系统栏
         shell: bash
         run: |
@@ -155,14 +201,14 @@ jobs:
           print(f'Configured immersive system bars: {path}')
           PY
 
-      - name: 赋予 Gradle 执行权限并构建 Debug APK
+      - name: 构建已签名 Release APK
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          ./gradlew assembleRelease --no-daemon
 
       - name: 上传生成的 APK 文件
         uses: actions/upload-artifact@v6
         with:
           name: daily-ledger-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          path: android/app/build/outputs/apk/release/app-release.apk
