@@ -86,8 +86,8 @@ jobs:
 
           path = Path('android/app/build.gradle')
           text = path.read_text(encoding='utf-8')
-          text, code_count = re.subn(r'versionCode\\s+1\\b', f"versionCode {os.environ['APP_VERSION_CODE']}", text, count=1)
-          text, name_count = re.subn(r"""versionName\\s+['"]1\\.0['"]""", f'''versionName "{os.environ['APP_VERSION_NAME']}"''', text, count=1)
+          text, code_count = re.subn(r'versionCode\s+1\b', f"versionCode {os.environ['APP_VERSION_CODE']}", text, count=1)
+          text, name_count = re.subn(r"""versionName\s+['"]1\.0['"]""", f'''versionName "{os.environ['APP_VERSION_NAME']}"''', text, count=1)
           if code_count != 1 or name_count != 1:
               raise SystemExit('Could not set Android versionCode/versionName in generated Gradle file')
           signing = """    signingConfigs {
@@ -103,7 +103,7 @@ jobs:
           text = text.replace('    buildTypes {', signing + '    buildTypes {', 1)
           build_types = text.index('    buildTypes {')
           head, tail = text[:build_types], text[build_types:]
-          tail, count = re.subn(r'(        release\\s*\\{)', r'\\1\\n            signingConfig signingConfigs.release', tail, count=1)
+          tail, count = re.subn(r'(        release\s*\{)', r'\1\n            signingConfig signingConfigs.release', tail, count=1)
           if count != 1:
               raise SystemExit('Could not attach release signing config')
           path.write_text(head + tail, encoding='utf-8')
