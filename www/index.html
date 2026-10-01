@@ -475,36 +475,58 @@
       font-size: 0.88rem;
     }
 
-    /* 模态日历面板（固定 42 格防抖设计） */
     .calendar-container-modal {
       position: fixed;
-      inset: 0;
-      z-index: 99999;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      z-index: 2147483000;
       display: none;
-      align-items: flex-end;
-      justify-content: center;
+      width: 100vw;
+      height: 100dvh;
+      overflow: hidden;
+      pointer-events: none;
     }
 
     .calendar-container-modal.show {
-      display: flex;
+      display: block;
+      pointer-events: auto;
     }
 
     .calendar-backdrop {
-      position: absolute;
-      inset: 0;
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      left: 0;
+      width: 100vw;
+      height: 100dvh;
       background: rgba(0, 0, 0, 0.65);
+      z-index: 0;
+      -webkit-transform: translateZ(0);
+      transform: translateZ(0);
     }
 
     .calendar-panel {
-      position: relative;
-      width: 100%;
-      max-width: 360px;
+      position: fixed;
+      left: 50%;
+      bottom: 0;
+      width: min(360px, calc(100vw - 24px));
+      max-height: calc(100dvh - 24px);
+      overflow-y: auto;
+      box-sizing: border-box;
       background: #181c2b;
-      border-top: 1px solid #2e354d;
+      border: 1px solid #2e354d;
+      border-bottom: none;
       border-radius: 20px 20px 0 0;
       padding: 20px 18px calc(20px + env(safe-area-inset-bottom)) 18px;
-      z-index: 100000;
-      transform: translateZ(0);
+      z-index: 1;
+      -webkit-transform: translate3d(-50%, 0, 0);
+      transform: translate3d(-50%, 0, 0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      isolation: isolate;
     }
 
     .calendar-header {
@@ -602,13 +624,14 @@
     }
 
     @media (min-width: 641px) {
-      .calendar-container-modal {
-        align-items: center;
-      }
       .calendar-panel {
-        border-radius: 20px;
+        bottom: 50%;
+        max-height: none;
         border: 1px solid #2e354d;
+        border-radius: 20px;
         padding-bottom: 20px;
+        -webkit-transform: translate3d(-50%, 50%, 0);
+        transform: translate3d(-50%, 50%, 0);
       }
     }
 
@@ -668,8 +691,8 @@
       .calendar-panel {
         width: min(100%, 420px);
         max-width: none;
-        padding-left: max(18px, env(safe-area-inset-left));
-        padding-right: max(18px, env(safe-area-inset-right));
+        padding-left: 18px;
+        padding-right: 18px;
       }
     }
 
