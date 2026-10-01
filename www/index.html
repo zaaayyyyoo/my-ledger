@@ -513,21 +513,21 @@
     }
 
     .calendar-panel {
+      /* 日历固定在屏幕正中央，不再从底部抽屉弹出 */
       position: fixed;
+      top: 50%;
       left: 50%;
-      bottom: 0;
-      width: min(360px, calc(100vw - 24px));
-      max-height: calc(100dvh - 24px);
-      overflow-y: auto;
+      width: min(420px, calc(100vw - 24px));
+      max-height: calc(100dvh - 32px);
+      overflow: hidden;
       box-sizing: border-box;
       background: #181c2b;
       border: 1px solid #2e354d;
-      border-bottom: none;
-      border-radius: 20px 20px 0 0;
-      padding: 20px 18px calc(20px + env(safe-area-inset-bottom)) 18px;
+      border-radius: 20px;
+      padding: 20px 18px;
       z-index: 1;
-      -webkit-transform: translate3d(-50%, 0, 0);
-      transform: translate3d(-50%, 0, 0);
+      -webkit-transform: translate3d(-50%, -50%, 0);
+      transform: translate3d(-50%, -50%, 0);
       -webkit-backface-visibility: hidden;
       backface-visibility: hidden;
       isolation: isolate;
@@ -629,13 +629,14 @@
 
     @media (min-width: 641px) {
       .calendar-panel {
-        bottom: 50%;
-        max-height: none;
+        top: 50%;
+        left: 50%;
+        max-height: calc(100dvh - 48px);
         border: 1px solid #2e354d;
         border-radius: 20px;
-        padding-bottom: 20px;
-        -webkit-transform: translate3d(-50%, 50%, 0);
-        transform: translate3d(-50%, 50%, 0);
+        padding: 20px 18px;
+        -webkit-transform: translate3d(-50%, -50%, 0);
+        transform: translate3d(-50%, -50%, 0);
       }
     }
 
@@ -700,10 +701,20 @@
       }
 
       .calendar-panel {
-        width: min(100%, 420px);
+        top: 50%;
+        left: 50%;
+        width: min(420px, calc(100vw - 20px));
         max-width: none;
-        padding-left: 18px;
-        padding-right: 18px;
+        max-height: calc(100dvh - 24px);
+        padding: 18px 14px;
+        -webkit-transform: translate3d(-50%, -50%, 0);
+        transform: translate3d(-50%, -50%, 0);
+      }
+
+      /* 保证 6 行日期一次性完整显示，用户无需在日历内部上下滑动 */
+      .calendar-days {
+        grid-template-rows: repeat(6, 40px);
+        height: 270px;
       }
     }
 
