@@ -47,15 +47,16 @@
       display: flex;
       justify-content: center;
       /* 顶部状态栏与底部手势区域安全边距 */
-      padding: calc(16px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left));
+      padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
-      contain: layout paint;
+      contain: layout;
     }
 
     .container {
       width: 100%;
       max-width: 680px;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       gap: 16px;
@@ -616,6 +617,102 @@
         grid-template-columns: 1fr;
         gap: 10px;
       }
+
+      .dashboard,
+      .form-panel,
+      .filter-section {
+        border-radius: 14px;
+      }
+
+      .dashboard {
+        padding: 16px;
+      }
+
+      .form-panel {
+        padding: 16px;
+      }
+
+      .stats-grid {
+        gap: 7px;
+      }
+
+      .stat-card {
+        min-width: 0;
+        padding: 11px 7px;
+      }
+
+      .stat-value {
+        font-size: 1rem;
+      }
+
+      .expense-item {
+        min-width: 0;
+        padding: 12px 13px;
+      }
+
+      .item-left {
+        min-width: 0;
+      }
+
+      .item-right {
+        gap: 7px;
+      }
+
+      .item-amount {
+        max-width: 112px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .calendar-panel {
+        width: min(100%, 420px);
+        max-width: none;
+        padding-left: max(18px, env(safe-area-inset-left));
+        padding-right: max(18px, env(safe-area-inset-right));
+      }
+    }
+
+    @media (max-width: 380px) {
+      body {
+        padding-left: max(10px, env(safe-area-inset-left));
+        padding-right: max(10px, env(safe-area-inset-right));
+      }
+
+      .dashboard-header {
+        gap: 8px;
+      }
+
+      .stats-grid {
+        gap: 5px;
+      }
+
+      .stat-label {
+        font-size: 0.68rem;
+      }
+
+      .stat-value {
+        font-size: 0.92rem;
+      }
+
+      .expense-item {
+        padding-left: 11px;
+        padding-right: 9px;
+      }
+
+      .item-right {
+        gap: 3px;
+      }
+
+      .item-amount {
+        max-width: 96px;
+        font-size: 0.95rem;
+      }
+
+      .btn-delete {
+        width: 32px;
+        height: 32px;
+      }
     }
   </style>
 </head>
@@ -756,7 +853,7 @@
       if (window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.StatusBar) {
         const { StatusBar } = window.Capacitor.Plugins;
         try {
-          await StatusBar.setOverlaysWebView({ overlay: true });
+          await StatusBar.setOverlaysWebView({ overlay: false });
           await StatusBar.setBackgroundColor({ color: '#00000000' });
           await StatusBar.setStyle({ style: 'DARK' });
         } catch (err) {
