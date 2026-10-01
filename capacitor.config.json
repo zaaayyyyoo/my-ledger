@@ -5,8 +5,8 @@
   "bundledWebRuntime": false,
   "plugins": {
     "StatusBar": {
-      "overlaysWebView": false,
-      "style": "DARK"
+      "overlaysWebView": true,
+      "style": "LIGHT"
     }
   }
 }
