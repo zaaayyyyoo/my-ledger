@@ -7,7 +7,8 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    # 固定 Ubuntu 24.04，避免 ubuntu-latest 后续迁移到 26.04 带来的构建环境漂移。
+    runs-on: ubuntu-24.04
 
     steps:
       - name: 检出仓库代码
@@ -23,7 +24,10 @@ jobs:
         with:
           distribution: 'zulu'
           java-version: '17'
-          cache: gradle
+          # 这里不能启用 cache: gradle：
+          # Android 工程是在后面的“初始化 Android 工程”步骤才生成的，
+          # setup-java 此时找不到 gradle-wrapper.properties 就会直接失败。
+          # Gradle 自己仍会正常使用 ~/.gradle 缓存机制。
 
       - name: 安装 Capacitor 依赖
         run: |
