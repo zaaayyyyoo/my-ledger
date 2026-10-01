@@ -158,7 +158,7 @@ jobs:
           ./gradlew assembleDebug --no-daemon
 
       - name: 上传生成的 APK 文件
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: daily-ledger-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
