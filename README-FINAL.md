@@ -6,7 +6,7 @@
 
 ```
 Vue 3 + TypeScript / Capacitor
-       | HTTP JSON API（可选）
+       | HTTP JSON API (optional)
        v
 Rust Axum API
        |
@@ -48,9 +48,9 @@ cargo run
 
 ## Android
 
-`npm run build:android` 会构建 Web 前端、首次需要时创建 Capacitor Android 工程、同步资源并生成 Debug APK。GitHub Actions 会在 push 到 main/master、Pull Request 或手动触发时构建 APK artifact。
+`npm run build:android` 会构建 Web 前端、同步 Capacitor 并生成 Debug APK。GitHub Actions 会在 push 到 main/master 或手动触发时构建 APK artifact。
 
-若要让 Android 使用远程 API，在构建环境设置 `VITE_API_BASE_URL`，值应是 API 的 HTTPS origin，例如 `https://ledger.example.com`。本地可在 `frontend/.env.local` 设置此变量，留空时使用离线模式。
+若要让 Android 使用远程 API，在构建环境设置 `VITE_API_BASE_URL`，值应是 API 的 HTTPS origin，例如 `https://ledger.example.com`。留空时使用离线模式。
 
 ## Docker 后端
 
