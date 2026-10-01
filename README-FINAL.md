@@ -1,25 +1,24 @@
-# Daily Ledger 2.0
+# Daily Ledger 2.2
 
-前端 Vue 3 + TypeScript + Vite，后端 Rust + Axum + SQLx + SQLite，Android 使用 Capacitor 6。
+记账应用使用 Vue 3 + TypeScript + Vite 前端、Capacitor 6 Android 容器，以及 Rust + Axum + SQLx + SQLite 后端。
 
 ## 架构
 
-```text
-Vue 3 / Capacitor
-       |
-       | HTTP JSON API
+```
+Vue 3 + TypeScript / Capacitor
+       | HTTP JSON API (optional)
        v
-Rust Axum
+Rust Axum API
        |
        v
 SQLite
 ```
 
-前端未配置 `VITE_API_BASE_URL` 时自动使用本地存储，保证 APK 可以离线使用；配置后自动使用 Rust 后端，并在首次连接且后端为空时把旧本地账单迁移到 SQLite。
+没有设置 `VITE_API_BASE_URL` 时，前端使用本机 localStorage 离线运行。设置该变量后，账单写入远程 API。首次连接时，如果服务端账单为空，会尝试把旧版本地账单导入一次。
 
-## 本地运行
+## 本地开发
 
-### 前端
+前端：
 
 ```bash
 cd frontend
@@ -27,46 +26,36 @@ npm install
 npm run dev
 ```
 
-### 后端
+后端：
 
 ```bash
 cd backend
 cargo run
 ```
 
-默认 `0.0.0.0:3000`，数据库默认 `sqlite://ledger.db`。
+后端默认监听 `0.0.0.0:3000`，数据库默认是 `sqlite://ledger.db`。可用 `DATABASE_URL` 和 `BIND_ADDR` 覆盖。
 
-## 后端 API
+## API
 
 - `GET /api/health`
-- `GET /api/bills?q=&range=&start=&end=&page=1&page_size=50`
+- `GET /api/bills?q=&start=&end=&page=1&page_size=50`
 - `POST /api/bills`
 - `PUT /api/bills/:id`
 - `DELETE /api/bills/:id`
-- `POST /api/bills/import`
+- `POST /api/bills/import`，请求体为 `{"bills":[...]}`
 
-## Android Action
+列表响应为 `{"items":[...],"total":N}`。金额以元作为 API JSON 数字，数据库以整数分存储。
 
-GitHub Actions 会自动安装前端、构建 `frontend/dist`、同步 Capacitor，并生成 Debug APK artifact。
+## Android
 
-如果希望 APK 连接远程 Rust 后端，在 GitHub Settings → Secrets and variables → Actions → Variables 增加：
+`npm run build:android` 会构建 Web 前端、同步 Capacitor 并生成 Debug APK。GitHub Actions 会在 push 到 main/master 或手动触发时构建 APK artifact。
 
-`VITE_API_BASE_URL=https://你的后端地址`
+若要让 Android 使用远程 API，在构建环境设置 `VITE_API_BASE_URL`，值应是 API 的 HTTPS origin，例如 `https://ledger.example.com`。留空时使用离线模式。
 
-不设置时 APK 默认使用本地离线模式。
-
-## 数据性能
-
-列表默认分页 50 条，SQLite 对日期、类型+日期建立索引，统计在数据库侧聚合，不再把全部账单一次性加载进前端 DOM。
-
-## Docker 部署后端
+## Docker 后端
 
 ```bash
 docker compose up -d --build
 ```
 
-健康检查：`http://服务器地址:3000/api/health`
-
-## 重要说明
-
-Android APK 本身不运行 Rust 服务进程；Rust 后端是独立服务。APK 可以在未配置 API 时完全离线运行，也可以通过 `VITE_API_BASE_URL` 连接部署好的 Rust 服务。若在公网使用，建议使用 HTTPS 反向代理，不要直接暴露 SQLite 服务。
+服务健康检查路径为 `/api/health`，SQLite 数据库存储在命名卷 `ledger-data` 中。生产部署请在反向代理配置 HTTPS，并限制 API 网络访问；当前示例 API 未实现账号认证，适合个人或可信网络自托管，不应直接作为多用户公网服务开放。

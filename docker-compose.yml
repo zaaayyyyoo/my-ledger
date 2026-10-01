@@ -1,15 +1,15 @@
 services:
-  ledger-backend:
+  ledger-api:
     build:
-      context: .
-      dockerfile: backend/Dockerfile
+      context: ./backend
     ports:
       - "3000:3000"
     environment:
-      BIND_ADDR: 0.0.0.0:3000
       DATABASE_URL: sqlite:///data/ledger.db
+      BIND_ADDR: 0.0.0.0:3000
     volumes:
       - ledger-data:/data
+    restart: unless-stopped
 
 volumes:
   ledger-data:

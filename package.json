@@ -1,9 +1,9 @@
 {
   "name": "daily-ledger",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "private": true,
   "scripts": {
-    "build:web": "npm --prefix frontend install && npm --prefix frontend run build && rm -rf www && cp -r frontend/dist www",
+    "build:web": "npm --prefix frontend install && npm --prefix frontend run build && node scripts/copy-web.mjs",
     "build:android": "npm run build:web && npx cap sync android && cd android && ./gradlew assembleDebug"
   },
   "dependencies": {
