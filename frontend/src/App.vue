@@ -152,7 +152,7 @@ onUnmounted(() => {
 <template>
   <main class="shell">
     <header class="top">
-      <div><p class="eyebrow">DAILY LEDGER</p><h1>我的账本</h1></div>
+      <div><h1>Daily Ledger</h1></div>
       <span class="mode"><i></i>仅保存在本机</span>
     </header>
 
