@@ -38,6 +38,14 @@ function localRead(): Bill[] {
   try { return JSON.parse(localStorage.getItem(STORAGE) || '[]'); }
   catch { return []; }
 }
+async function canUsePublicDocuments() {
+  if (!Capacitor.isNativePlatform()) return false;
+  const androidVersion = navigator.userAgent.match(/Android\\s+(\\d+)/i);
+  if (!androidVersion || Number(androidVersion[1]) > 10) return true;
+  let permission = await Filesystem.checkPermissions();
+  if (permission.publicStorage !== 'granted') permission = await Filesystem.requestPermissions();
+  return permission.publicStorage === 'granted';
+}
 function validBills(value: unknown): value is Bill[] {
   return Array.isArray(value) && value.every((b: any) =>
     b && Number.isFinite(Number(b.id)) &&
@@ -52,9 +60,7 @@ async function writeDeviceBackup(records = localRead()) {
     return false;
   }
   try {
-    let permissions = await Filesystem.checkPermissions();
-    if (permissions.publicStorage !== 'granted') permissions = await Filesystem.requestPermissions();
-    if (permissions.publicStorage !== 'granted') throw new Error('没有文件访问权限');
+    if (!await canUsePublicDocuments()) throw new Error('没有文件访问权限');
     await Filesystem.mkdir({ directory: Directory.Documents, path: 'DailyLedger', recursive: true });
     await Filesystem.writeFile({
       directory: Directory.Documents, path: BACKUP_PATH, encoding: Encoding.UTF8, recursive: true,
@@ -70,9 +76,7 @@ async function writeDeviceBackup(records = localRead()) {
 async function restoreDeviceBackup() {
   if (!Capacitor.isNativePlatform() || localRead().length) return;
   try {
-    let permission = await Filesystem.checkPermissions();
-    if (permission.publicStorage !== 'granted') permission = await Filesystem.requestPermissions();
-    if (permission.publicStorage !== 'granted') return;
+    if (!await canUsePublicDocuments()) return;
     const result = await Filesystem.readFile({ directory: Directory.Documents, path: BACKUP_PATH, encoding: Encoding.UTF8 });
     const parsed = JSON.parse(result.data as string);
     const records = Array.isArray(parsed) ? parsed : parsed?.bills;
