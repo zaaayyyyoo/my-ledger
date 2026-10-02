@@ -3,7 +3,6 @@ frontend/node_modules/
 frontend/dist/
 www/
 android/
-backend/target/
 *.db
 *.db-shm
 *.db-wal
