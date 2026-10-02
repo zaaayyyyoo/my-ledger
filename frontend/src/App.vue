@@ -40,7 +40,7 @@ function localRead(): Bill[] {
 }
 async function canUsePublicDocuments() {
   if (!Capacitor.isNativePlatform()) return false;
-  const androidVersion = navigator.userAgent.match(/Android\\s+(\\d+)/i);
+  const androidVersion = navigator.userAgent.match(/Android\s+(\d+)/i);
   if (!androidVersion || Number(androidVersion[1]) > 10) return true;
   let permission = await Filesystem.checkPermissions();
   if (permission.publicStorage !== 'granted') permission = await Filesystem.requestPermissions();
