@@ -1,6 +1,6 @@
 {
-  "appId": "com.wonder.ledger",
-  "appName": "记账",
+  "appId": "com.wonder.ledger.local",
+  "appName": "记账本（本地）",
   "webDir": "www",
   "bundledWebRuntime": false,
   "plugins": {
