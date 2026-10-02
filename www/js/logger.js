@@ -48,8 +48,6 @@
 
   window.addEventListener('error', (event) => logger.error(event.error || event.message || 'Window error', { source: event.filename, line: event.lineno, column: event.colno }));
   window.addEventListener('unhandledrejection', (event) => logger.error('Unhandled Promise rejection', event.reason));
-  window.addEventListener('online', () => logger.info('网络状态: online'));
-  window.addEventListener('offline', () => logger.warn('网络状态: offline'));
 
   const originalWarn = console.warn.bind(console), originalError = console.error.bind(console);
   console.warn = (...args) => { originalWarn(...args); logger.warn(args.map(normalize).join(' ')); };
