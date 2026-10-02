@@ -5,9 +5,7 @@ type Bill = { id: number; type: 'income' | 'expense'; title: string; amount: num
 type Range = 'all' | 'today' | 'week' | 'month' | 'custom';
 type CalendarCell = { key: string; value: string; day: number; inMonth: boolean };
 const filterOptions: [Range, string][] = [['all','全部'],['today','今天'],['week','近7天'],['month','本月'],['custom','自定义范围']];
-const API = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
 const STORAGE = 'daily_expenses_records';
-const MIGRATED = `daily_ledger_migrated_${API}`;
 const bills = ref<Bill[]>([]);
 const title = ref('');
 const amount = ref('');
@@ -66,35 +64,17 @@ function matchesDate(d: string) {
 async function load() {
   busy.value = true; error.value = '';
   try {
-    if (!API) {
-      const q = query.value.trim().toLocaleLowerCase();
-      const filtered = localRead().filter(b => (!q || b.title.toLocaleLowerCase().includes(q)) && matchesDate(b.date))
-        .sort((a,b) => b.date.localeCompare(a.date) || b.id-a.id);
-      total.value = filtered.length;
-      summary.value = filtered.reduce((s,b) => {
-        s[b.type] += b.amount;
-        return s;
-      }, { income: 0, expense: 0 });
-      bills.value = filtered.slice((page.value-1)*pageSize, page.value*pageSize);
-      return;
-    }
-    const p = dateParams();
-    const listParams = new URLSearchParams(p);
-    listParams.set('page', String(page.value));
-    listParams.set('page_size', String(pageSize));
-    const [health, listRes, summaryRes] = await Promise.all([
-      fetch(`${API}/api/health`),
-      fetch(`${API}/api/bills?${listParams}`),
-      fetch(`${API}/api/summary?${p}`)
-    ]);
-    if (!health.ok) throw new Error('后端连接检查失败');
-    if (!listRes.ok || !summaryRes.ok) throw new Error('加载账单失败');
-    const [data, sums] = await Promise.all([listRes.json(), summaryRes.json()]);
-    bills.value = data.items;
-    total.value = data.total;
-    summary.value = sums;
+    const q = query.value.trim().toLocaleLowerCase();
+    const filtered = localRead().filter(b => (!q || b.title.toLocaleLowerCase().includes(q)) && matchesDate(b.date))
+      .sort((a,b) => b.date.localeCompare(a.date) || b.id-a.id);
+    total.value = filtered.length;
+    summary.value = filtered.reduce((s,b) => {
+      s[b.type] += b.amount;
+      return s;
+    }, { income: 0, expense: 0 });
+    bills.value = filtered.slice((page.value-1)*pageSize, page.value*pageSize);
   } catch (e) {
-    error.value = e instanceof Error ? e.message : '加载失败';
+    error.value = e instanceof Error ? e.message : '读取账单失败';
   } finally { busy.value = false; }
 }
 async function addBill() {
@@ -106,15 +86,8 @@ async function addBill() {
   };
   busy.value = true; error.value = '';
   try {
-    if (API) {
-      const r = await fetch(`${API}/api/bills`, {
-        method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(bill)
-      });
-      if (!r.ok) throw new Error('保存账单失败');
-    } else {
-      const all = localRead(); all.push(bill);
-      localStorage.setItem(STORAGE, JSON.stringify(all));
-    }
+    const all = localRead(); all.push(bill);
+    localStorage.setItem(STORAGE, JSON.stringify(all));
     title.value = ''; amount.value = ''; page.value = 1; await load();
   } catch (e) { error.value = e instanceof Error ? e.message : '保存失败'; }
   finally { busy.value = false; }
@@ -122,12 +95,7 @@ async function addBill() {
 async function removeBill(id: number) {
   if (!confirm('确定删除这笔记录吗？')) return;
   try {
-    if (API) {
-      const r = await fetch(`${API}/api/bills/${id}`, {method:'DELETE'});
-      if (!r.ok) throw new Error('删除账单失败');
-    } else {
-      localStorage.setItem(STORAGE, JSON.stringify(localRead().filter(b => b.id !== id)));
-    }
+    localStorage.setItem(STORAGE, JSON.stringify(localRead().filter(b => b.id !== id)));
     if (bills.value.length === 1 && page.value > 1) page.value--;
     await load();
   } catch (e) { error.value = e instanceof Error ? e.message : '删除失败'; }
@@ -171,26 +139,9 @@ const highlighted = (value: string) => {
   const escapedQuery = q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return safe.replace(new RegExp(`(${escapedQuery})`, 'gi'), '<mark>$1</mark>');
 };
-async function migrateIfNeeded() {
-  if (!API || localStorage.getItem(MIGRATED)) return;
-  const old = localRead();
-  if (!old.length) return;
-  try {
-    const r = await fetch(`${API}/api/bills?page=1&page_size=1`);
-    if (!r.ok) return;
-    const data = await r.json();
-    if (data.total === 0) {
-      const imported = await fetch(`${API}/api/bills/import`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({bills:old})
-      });
-      if (!imported.ok) return;
-    }
-    localStorage.setItem(MIGRATED, 'done');
-  } catch { /* Retain local data and retry on the next launch. */ }
-}
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown);
-  await migrateIfNeeded(); await load();
+  await load();
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
@@ -201,8 +152,8 @@ onUnmounted(() => {
 <template>
   <main class="shell">
     <header class="top">
-      <div><p class="eyebrow">DAILY LEDGER</p><h1>财务概览</h1></div>
-      <span class="mode"><i></i>{{ API ? '云端同步' : '本机离线' }}</span>
+      <div><p class="eyebrow">DAILY LEDGER</p><h1>我的账本</h1></div>
+      <span class="mode"><i></i>仅保存在本机</span>
     </header>
 
     <section class="summary" aria-label="收支汇总">
@@ -228,7 +179,7 @@ onUnmounted(() => {
           <button type="button" :class="{active:type==='income', 'income-tab':type==='income'}" @click="type='income'">收入</button>
         </div>
         <label class="field-label" for="bill-title">项目名称</label>
-        <input id="bill-title" v-model="title" class="text-field" :placeholder="type==='expense'?'例如：午餐、地铁':'例如：工资、兼职收入'" maxlength="200" required />
+        <input id="bill-title" v-model="title" class="text-field" placeholder="请输入项目名称" maxlength="200" required />
         <div class="amount-date-row">
           <div class="amount-field">
             <label class="field-label" for="bill-amount">金额</label>
@@ -274,7 +225,7 @@ onUnmounted(() => {
       <div v-else class="empty-state"><span class="empty-icon">＋</span><p>{{ query || range!=='all' ? '没有找到符合条件的记录' : '暂无记录，记下第一笔收支吧' }}</p></div>
       <footer v-if="pages>1" class="pagination"><button :disabled="page<=1" @click="page--;load()">上一页</button><span>{{ page }} / {{ pages }}</span><button :disabled="page>=pages" @click="page++;load()">下一页</button></footer>
     </section>
-    <p class="note">{{ API ? '收支数据已连接至你的账本服务' : '离线模式下，账单仅保存在这台设备' }}</p>
+    <p class="note">账单仅保存在这台设备</p>
 
     <div v-if="calendarOpen" class="calendar-overlay" @click.self="calendarOpen=false">
       <section class="calendar-dialog" role="dialog" aria-modal="true" aria-label="选择记账日期">
