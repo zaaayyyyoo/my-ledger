@@ -12,12 +12,15 @@ npm run dev
 
 ## 构建 Android APK
 
+在仓库根目录运行：
+
 ```bash
+npm install
 npm run build:android
 ```
 
-GitHub Actions 也会在 main/master 有推送时构建已签名 APK artifact。工作流只负责编译和打包；应用运行时不访问网络服务，账单数据留在本机。
+GitHub Actions 负责自动构建并提供已签名 APK artifact。它只用于打包；应用运行时不访问远程服务，账单数据留在本机。
 
 ## 数据存储
 
-账单保存在 Android 应用的 WebView 本地存储中。卸载应用或清除应用数据会删除本机账单，卸载应用或清除应用数据会删除保存在设备上的账单。
+卸载应用或清除应用数据会删除保存在设备上的账单。
