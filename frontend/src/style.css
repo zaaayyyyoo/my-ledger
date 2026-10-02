@@ -113,6 +113,19 @@ button { color: inherit; cursor: pointer; touch-action: manipulation; }
 .calendar-grid button.muted { color:#555c6b; }.calendar-grid button.today { color:#b0a7ff; box-shadow:inset 0 0 0 1px #7065d2; }.calendar-grid button.chosen { background:#7164dc; color:#fff; font-weight:700; }
 .calendar-footer { display:flex; justify-content:space-between; margin-top:12px; padding-top:11px; border-top:1px solid #2a2e3a; }
 .calendar-footer button { padding:8px 11px; border:0; border-radius:8px; background:transparent; font-size:13px; }.cancel-date { color:#a4a9b4; }.today-date { color:#aaa1ff; font-weight:600; }
+
+.backup-panel { padding:15px 17px; }
+.backup-heading { display:flex; align-items:center; justify-content:space-between; margin-bottom:7px; }
+.backup-heading h2 { margin:4px 0 0; font-size:15px; }
+.backup-shield { display:grid; place-items:center; width:33px; height:33px; border:1px solid #343149; border-radius:11px; background:#211f2e; color:#bcb3ff; font-size:18px; }
+.backup-status { margin:0 0 10px; color:#a6abba; font-size:11px; line-height:1.5; }
+.backup-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.backup-button,.backup-import { display:flex; align-items:center; justify-content:center; min-height:38px; border:1px solid #39344f; border-radius:10px; background:#211f2e; color:#d1ccff; font-size:12px; font-weight:600; }
+.backup-button:disabled { opacity:.55; }
+.backup-import { position:relative; overflow:hidden; cursor:pointer; }
+.backup-import input { position:absolute; inset:0; width:100%; height:100%; opacity:0; cursor:pointer; }
+.backup-footnote { margin:9px 0 0; color:#737a89; font-size:10px; line-height:1.45; }
+
 @media (min-width:560px) {
   .shell { padding-left:22px; padding-right:22px; }
   .top { margin-bottom:23px; }.top h1 { font-size:28px; }
