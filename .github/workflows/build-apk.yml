@@ -92,6 +92,138 @@ jobs:
           npx cap add android
           npx cap sync android
 
+      - name: 注入跨应用账本迁移接口
+        env:
+          APP_VARIANT: ${{ matrix.variant }}
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import os
+          import re
+          import xml.etree.ElementTree as ET
+
+          candidates = list(Path('android/app/src/main/java').rglob('MainActivity.java'))
+          if not candidates:
+              candidates = list(Path('android/app/src/main/java').rglob('MainActivity.kt'))
+          if not candidates:
+              raise SystemExit('MainActivity.java/MainActivity.kt not found')
+          activity = candidates[0]
+          match = re.search(r'^\\s*package\\s+([\\w.]+)', activity.read_text(encoding='utf-8'), re.M)
+          if not match:
+              raise SystemExit('Cannot detect Android package')
+          package_name = match.group(1)
+          source_dir = activity.parent
+          plugin = """package __PACKAGE__;
+
+          import android.database.Cursor;
+          import android.net.Uri;
+
+          import com.getcapacitor.JSObject;
+          import com.getcapacitor.Plugin;
+          import com.getcapacitor.PluginCall;
+          import com.getcapacitor.PluginMethod;
+          import com.getcapacitor.annotation.CapacitorPlugin;
+
+          @CapacitorPlugin(name = "LedgerMigrationReader")
+          public class LedgerMigrationReaderPlugin extends Plugin {
+              @PluginMethod
+              public void readLedger(PluginCall call) {
+                  JSObject result = new JSObject();
+                  Uri uri = Uri.parse("content://com.wonder.ledger.migration/ledger");
+                  try (Cursor cursor = getContext().getContentResolver().query(uri, null, null, null, null)) {
+                      if (cursor != null && cursor.moveToFirst()) {
+                          int index = cursor.getColumnIndex("data");
+                          if (index >= 0) {
+                              result.put("data", cursor.getString(index));
+                          }
+                      }
+                  } catch (Exception ignored) {
+                      // No bridge APK installed yet, or its data has not been initialized.
+                  }
+                  call.resolve(result);
+              }
+          }
+          """
+          source_dir.joinpath('LedgerMigrationReaderPlugin.java').write_text(
+              plugin.replace('__PACKAGE__', package_name), encoding='utf-8')
+
+          android = '{http://schemas.android.com/apk/res/android}'
+          ET.register_namespace('android', android[1:-1])
+          manifest_path = Path('android/app/src/main/AndroidManifest.xml')
+          tree = ET.parse(manifest_path)
+          root = tree.getroot()
+          permission_name = 'com.wonder.ledger.permission.READ_LEDGER_MIGRATION'
+          if not any(n.get(android + 'name') == permission_name for n in root.findall('uses-permission')):
+              root.insert(0, ET.Element('uses-permission', {android + 'name': permission_name}))
+          queries = root.find('queries')
+          if queries is None:
+              queries = ET.Element('queries')
+              app = root.find('application')
+              root.insert(list(root).index(app), queries)
+          if not any(n.get(android + 'authorities') == 'com.wonder.ledger.migration' for n in queries.findall('provider')):
+              ET.SubElement(queries, 'provider', {android + 'authorities': 'com.wonder.ledger.migration'})
+          if os.environ['APP_VARIANT'] == 'migration':
+              if not any(n.get(android + 'name') == permission_name for n in root.findall('permission')):
+                  root.insert(list(root).index(root.find('application')), ET.Element('permission', {
+                      android + 'name': permission_name,
+                      android + 'protectionLevel': 'signature'
+                  }))
+              provider_code = """package __PACKAGE__;
+
+          import android.content.ContentProvider;
+          import android.content.ContentValues;
+          import android.database.Cursor;
+          import android.database.MatrixCursor;
+          import android.net.Uri;
+
+          import java.io.ByteArrayOutputStream;
+          import java.io.File;
+          import java.io.FileInputStream;
+          import java.io.InputStream;
+
+          public class LedgerMigrationProvider extends ContentProvider {
+              @Override public boolean onCreate() { return true; }
+
+              @Override
+              public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder) {
+                  MatrixCursor cursor = new MatrixCursor(new String[] {"data"});
+                  if (!"ledger".equals(uri.getLastPathSegment())) return cursor;
+                  File file = new File(getContext().getFilesDir(), "ledger-migration.json");
+                  if (!file.isFile()) return cursor;
+                  try (InputStream input = new FileInputStream(file);
+                       ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+                      byte[] buffer = new byte[8192];
+                      int count;
+                      while ((count = input.read(buffer)) != -1) output.write(buffer, 0, count);
+                      cursor.addRow(new Object[] {output.toString("UTF-8")});
+                  } catch (Exception ignored) {
+                      // An absent or incomplete snapshot is reported as no migration data.
+                  }
+                  return cursor;
+              }
+
+              @Override public String getType(Uri uri) { return "vnd.android.cursor.item/vnd.daily-ledger"; }
+              @Override public Uri insert(Uri uri, ContentValues values) { return null; }
+              @Override public int delete(Uri uri, String selection, String[] selectionArgs) { return 0; }
+              @Override public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs) { return 0; }
+          }
+          """
+              source_dir.joinpath('LedgerMigrationProvider.java').write_text(
+                  provider_code.replace('__PACKAGE__', package_name), encoding='utf-8')
+              app = root.find('application')
+              if not any(n.get(android + 'authorities') == 'com.wonder.ledger.migration' for n in app.findall('provider')):
+                  ET.SubElement(app, 'provider', {
+                      android + 'name': '.LedgerMigrationProvider',
+                      android + 'authorities': 'com.wonder.ledger.migration',
+                      android + 'exported': 'true',
+                      android + 'readPermission': permission_name,
+                      android + 'grantUriPermissions': 'false'
+                  })
+          tree.write(manifest_path, encoding='utf-8', xml_declaration=True)
+          print(f'Configured signed app-to-app migration for {os.environ["APP_VARIANT"]}')
+          PY
+
       - name: 配置本地账本备份所需的旧版 Android 存储权限
         shell: bash
         run: |
@@ -249,8 +381,20 @@ jobs:
               }}
           }}
           '''
+          if path.suffix == '.java':
+              code = code.replace(
+                  'super.onCreate(savedInstanceState);',
+                  'registerPlugin(LedgerMigrationReaderPlugin.class);\\n        super.onCreate(savedInstanceState);',
+                  1
+              )
+          else:
+              code = code.replace(
+                  'super.onCreate(savedInstanceState)',
+                  'registerPlugin(LedgerMigrationReaderPlugin::class.java)\\n        super.onCreate(savedInstanceState)',
+                  1
+              )
           path.write_text(code, encoding='utf-8')
-          print(f'Configured immersive system bars: {path}')
+          print(f'Configured immersive system bars and ledger migration bridge: {path}')
           PY
 
       - name: 构建已签名 Release APK
