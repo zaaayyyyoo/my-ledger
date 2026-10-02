@@ -8,7 +8,7 @@ type Range = 'all' | 'today' | 'week' | 'month' | 'custom';
 type CalendarCell = { key: string; value: string; day: number; inMonth: boolean };
 const filterOptions: [Range, string][] = [['all','全部'],['today','今天'],['week','近7天'],['month','本月'],['custom','自定义范围']];
 const STORAGE = 'daily_expenses_records';
-const BACKUP_PATH = 'DailyLedger/ledger-backup.json';
+const BACKUP_PATH = import.meta.env.VITE_BACKUP_FILE || 'DailyLedger/ledger-backup-local.json';
 const bills = ref<Bill[]>([]);
 const title = ref('');
 const amount = ref('');
@@ -225,6 +225,8 @@ onMounted(async () => {
   window.addEventListener('keydown', onKeydown);
   await restoreDeviceBackup();
   await load();
+  const existingBills = localRead();
+  if (existingBills.length) await writeDeviceBackup(existingBills);
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
