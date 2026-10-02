@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { Capacitor } from '@capacitor/core';
+import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 
 type Bill = { id: number; type: 'income' | 'expense'; title: string; amount: number; date: string };
 type Range = 'all' | 'today' | 'week' | 'month' | 'custom';
 type CalendarCell = { key: string; value: string; day: number; inMonth: boolean };
 const filterOptions: [Range, string][] = [['all','全部'],['today','今天'],['week','近7天'],['month','本月'],['custom','自定义范围']];
 const STORAGE = 'daily_expenses_records';
+const BACKUP_PATH = 'DailyLedger/ledger-backup.json';
 const bills = ref<Bill[]>([]);
 const title = ref('');
 const amount = ref('');
@@ -21,6 +24,8 @@ const summary = ref({ income: 0, expense: 0 });
 const pageSize = 50;
 const busy = ref(false);
 const error = ref('');
+const backupBusy = ref(false);
+const backupStatus = ref('账单会自动备份到设备的 Documents/DailyLedger 文件夹。');
 const calendarOpen = ref(false);
 const calendarMonth = ref(new Date());
 let searchTimer: ReturnType<typeof setTimeout> | undefined;
@@ -32,6 +37,75 @@ function today() {
 function localRead(): Bill[] {
   try { return JSON.parse(localStorage.getItem(STORAGE) || '[]'); }
   catch { return []; }
+}
+function validBills(value: unknown): value is Bill[] {
+  return Array.isArray(value) && value.every((b: any) =>
+    b && Number.isFinite(Number(b.id)) &&
+    (b.type === 'income' || b.type === 'expense') &&
+    typeof b.title === 'string' && Number.isFinite(Number(b.amount)) &&
+    Number(b.amount) > 0 && typeof b.date === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(b.date)
+  );
+}
+async function writeDeviceBackup(records = localRead()) {
+  if (!Capacitor.isNativePlatform()) {
+    backupStatus.value = '安装版 APK 可将备份保存到设备 Documents 文件夹。';
+    return false;
+  }
+  try {
+    let permissions = await Filesystem.checkPermissions();
+    if (permissions.publicStorage !== 'granted') permissions = await Filesystem.requestPermissions();
+    if (permissions.publicStorage !== 'granted') throw new Error('没有文件访问权限');
+    await Filesystem.mkdir({ directory: Directory.Documents, path: 'DailyLedger', recursive: true });
+    await Filesystem.writeFile({
+      directory: Directory.Documents, path: BACKUP_PATH, encoding: Encoding.UTF8, recursive: true,
+      data: JSON.stringify({ format: 'daily-ledger-backup', version: 1, updatedAt: new Date().toISOString(), bills: records })
+    });
+    backupStatus.value = '本机备份已更新：Documents/DailyLedger/ledger-backup.json';
+    return true;
+  } catch {
+    backupStatus.value = '账单已保存在应用内，但文件备份失败；可使用“导入备份”恢复已有文件。';
+    return false;
+  }
+}
+async function restoreDeviceBackup() {
+  if (!Capacitor.isNativePlatform() || localRead().length) return;
+  try {
+    const permission = await Filesystem.checkPermissions();
+    if (permission.publicStorage !== 'granted') return;
+    const result = await Filesystem.readFile({ directory: Directory.Documents, path: BACKUP_PATH, encoding: Encoding.UTF8 });
+    const parsed = JSON.parse(result.data as string);
+    const records = Array.isArray(parsed) ? parsed : parsed?.bills;
+    if (!validBills(records) || !records.length) return;
+    localStorage.setItem(STORAGE, JSON.stringify(records));
+    backupStatus.value = `已从本机文件恢复 ${records.length} 笔账单。`;
+  } catch {
+    // First install or missing backup file: continue with an empty local ledger.
+  }
+}
+async function saveBackupNow() {
+  backupBusy.value = true;
+  await writeDeviceBackup();
+  backupBusy.value = false;
+}
+async function importBackup(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file) return;
+  try {
+    const parsed = JSON.parse(await file.text());
+    const records = Array.isArray(parsed) ? parsed : parsed?.bills;
+    if (!validBills(records)) throw new Error('文件格式不正确');
+    if (!confirm(`将用备份中的 ${records.length} 笔记录覆盖此应用现有账单，继续吗？`)) return;
+    localStorage.setItem(STORAGE, JSON.stringify(records));
+    page.value = 1;
+    await load();
+    await writeDeviceBackup(records);
+    backupStatus.value = `已导入 ${records.length} 笔账单。`;
+  } catch {
+    backupStatus.value = '无法读取该备份文件，请选择 Daily Ledger JSON 账本备份。';
+  } finally {
+    input.value = '';
+  }
 }
 function dateParams() {
   const p = new URLSearchParams();
@@ -88,6 +162,7 @@ async function addBill() {
   try {
     const all = localRead(); all.push(bill);
     localStorage.setItem(STORAGE, JSON.stringify(all));
+    await writeDeviceBackup(all);
     title.value = ''; amount.value = ''; page.value = 1; await load();
   } catch (e) { error.value = e instanceof Error ? e.message : '保存失败'; }
   finally { busy.value = false; }
@@ -95,7 +170,9 @@ async function addBill() {
 async function removeBill(id: number) {
   if (!confirm('确定删除这笔记录吗？')) return;
   try {
-    localStorage.setItem(STORAGE, JSON.stringify(localRead().filter(b => b.id !== id)));
+    const remaining = localRead().filter(b => b.id !== id);
+    localStorage.setItem(STORAGE, JSON.stringify(remaining));
+    await writeDeviceBackup(remaining);
     if (bills.value.length === 1 && page.value > 1) page.value--;
     await load();
   } catch (e) { error.value = e instanceof Error ? e.message : '删除失败'; }
@@ -141,6 +218,7 @@ const highlighted = (value: string) => {
 };
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown);
+  await restoreDeviceBackup();
   await load();
 });
 onUnmounted(() => {
@@ -169,6 +247,16 @@ onUnmounted(() => {
         <span class="summary-label"><i class="dot violet"></i>结余</span>
         <strong :class="net >= 0 ? 'balance-positive' : 'balance-negative'">{{ money(net) }}</strong>
       </article>
+    </section>
+
+    <section class="panel backup-panel">
+      <div class="backup-heading"><div><span class="section-kicker">LOCAL DATA</span><h2>本机账单备份</h2></div><span class="backup-shield" aria-hidden="true">⌂</span></div>
+      <p class="backup-status">{{ backupStatus }}</p>
+      <div class="backup-actions">
+        <button type="button" class="backup-button" :disabled="backupBusy" @click="saveBackupNow">{{ backupBusy ? '正在保存…' : '立即备份' }}</button>
+        <label class="backup-import">从文件恢复<input type="file" accept=".json,application/json" @change="importBackup" /></label>
+      </div>
+      <p class="backup-footnote">应用卸载会清除应用内数据；请确认备份文件已保存在设备的 Documents 文件夹。</p>
     </section>
 
     <section class="panel entry-panel">
