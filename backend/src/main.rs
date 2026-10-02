@@ -32,6 +32,8 @@ struct ListQuery {
 }
 #[derive(Serialize)]
 struct BillPage { items: Vec<BillRow>, total: i64 }
+#[derive(Serialize)]
+struct BillSummary { income: f64, expense: f64 }
 #[derive(Deserialize)]
 struct ImportBody { bills: Vec<Bill> }
 
@@ -44,24 +46,38 @@ fn validate(b: &Bill) -> Result<i64, &'static str> {
 }
 async fn health() -> &'static str { "ok" }
 
+fn add_filters(q: &ListQuery, query: &mut QueryBuilder<Sqlite>) {
+    if let Some(term) = q.q.as_ref().filter(|x| !x.trim().is_empty()) {
+        query.push(" AND title LIKE ").push_bind(format!("%{}%", term.trim()));
+    }
+    if let Some(start) = q.start.as_ref().filter(|x| !x.is_empty()) {
+        query.push(" AND date >= ").push_bind(start.clone());
+    }
+    if let Some(end) = q.end.as_ref().filter(|x| !x.is_empty()) {
+        query.push(" AND date <= ").push_bind(end.clone());
+    }
+}
+
+async fn summary(State(s): State<AppState>, Query(q): Query<ListQuery>) -> Result<Json<BillSummary>, StatusCode> {
+    let mut query = QueryBuilder::<Sqlite>::new(
+        "SELECT COALESCE(SUM(CASE WHEN kind='income' THEN amount_cents ELSE 0 END),0) AS income, COALESCE(SUM(CASE WHEN kind='expense' THEN amount_cents ELSE 0 END),0) AS expense FROM bills WHERE 1=1"
+    );
+    add_filters(&q, &mut query);
+    let row = query.build().fetch_one(&s.pool).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    use sqlx::Row;
+    Ok(Json(BillSummary {
+        income: row.get::<i64,_>("income") as f64 / 100.0,
+        expense: row.get::<i64,_>("expense") as f64 / 100.0,
+    }))
+}
+
 async fn list(State(s): State<AppState>, Query(q): Query<ListQuery>) -> Result<Json<BillPage>, StatusCode> {
     let page = q.page.unwrap_or(1).max(1);
     let size = q.page_size.unwrap_or(50).clamp(1, 200);
     let mut count = QueryBuilder::<Sqlite>::new("SELECT COUNT(*) FROM bills WHERE 1=1");
     let mut rows = QueryBuilder::<Sqlite>::new("SELECT id, kind, title, amount_cents, date FROM bills WHERE 1=1");
-    if let Some(term) = q.q.as_ref().filter(|x| !x.trim().is_empty()) {
-        let pattern = format!("%{}%", term.trim());
-        count.push(" AND title LIKE ").push_bind(pattern.clone());
-        rows.push(" AND title LIKE ").push_bind(pattern);
-    }
-    if let Some(start) = q.start.as_ref().filter(|x| !x.is_empty()) {
-        count.push(" AND date >= ").push_bind(start.clone());
-        rows.push(" AND date >= ").push_bind(start.clone());
-    }
-    if let Some(end) = q.end.as_ref().filter(|x| !x.is_empty()) {
-        count.push(" AND date <= ").push_bind(end.clone());
-        rows.push(" AND date <= ").push_bind(end.clone());
-    }
+    add_filters(&q, &mut count);
+    add_filters(&q, &mut rows);
     let total: i64 = count.build_query_scalar().fetch_one(&s.pool).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     rows.push(" ORDER BY date DESC, id DESC LIMIT ").push_bind(size)
         .push(" OFFSET ").push_bind((page-1)*size);
@@ -120,6 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     sqlx::query("CREATE INDEX IF NOT EXISTS idx_bills_date ON bills(date DESC)")
         .execute(&pool).await?;
     let app=Router::new().route("/api/health",get(health))
+        .route("/api/summary",get(summary))
         .route("/api/bills",get(list).post(create))
         .route("/api/bills/:id",put(update).delete(remove))
         .route("/api/bills/import",post(import))
