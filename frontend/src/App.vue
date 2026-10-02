@@ -43,7 +43,7 @@ function validBills(value: unknown): value is Bill[] {
     b && Number.isFinite(Number(b.id)) &&
     (b.type === 'income' || b.type === 'expense') &&
     typeof b.title === 'string' && Number.isFinite(Number(b.amount)) &&
-    Number(b.amount) > 0 && typeof b.date === 'string' && /^\\d{4}-\\d{2}-\\d{2}$/.test(b.date)
+    Number(b.amount) > 0 && typeof b.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(b.date)
   );
 }
 async function writeDeviceBackup(records = localRead()) {
@@ -70,7 +70,8 @@ async function writeDeviceBackup(records = localRead()) {
 async function restoreDeviceBackup() {
   if (!Capacitor.isNativePlatform() || localRead().length) return;
   try {
-    const permission = await Filesystem.checkPermissions();
+    let permission = await Filesystem.checkPermissions();
+    if (permission.publicStorage !== 'granted') permission = await Filesystem.requestPermissions();
     if (permission.publicStorage !== 'granted') return;
     const result = await Filesystem.readFile({ directory: Directory.Documents, path: BACKUP_PATH, encoding: Encoding.UTF8 });
     const parsed = JSON.parse(result.data as string);
