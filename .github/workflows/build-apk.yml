@@ -109,7 +109,7 @@ jobs:
           if not candidates:
               raise SystemExit('MainActivity.java/MainActivity.kt not found')
           activity = candidates[0]
-          match = re.search(r'^\\s*package\\s+([\\w.]+)', activity.read_text(encoding='utf-8'), re.M)
+          match = re.search(r'^\s*package\s+([\w.]+)', activity.read_text(encoding='utf-8'), re.M)
           if not match:
               raise SystemExit('Cannot detect Android package')
           package_name = match.group(1)
