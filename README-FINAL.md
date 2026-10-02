@@ -1,6 +1,6 @@
-# Daily Ledger 2.2
+# Daily Ledger 本地版
 
-记账应用使用 Vue 3 + TypeScript + Vite 前端和 Capacitor 6 Android 容器。账单只保存在设备本机的 localStorage，不连接远程 API，也不需要后端或账号。
+记账应用使用 Vue 3 + TypeScript + Vite 和 Capacitor Android。账单只在本机处理，不连接远程 API 或后端。
 
 ## 本地开发
 
@@ -19,8 +19,14 @@ npm install
 npm run build:android
 ```
 
-GitHub Actions 负责自动构建并提供已签名 APK artifact。它只用于打包；应用运行时不访问远程服务，账单数据留在本机。
+GitHub Actions 只负责构建和签名 APK，不参与应用运行时的数据读写。
 
-## 数据存储
+## 本机账单与卸载备份
 
-卸载应用或清除应用数据会删除保存在设备上的账单。
+账单首先保存在应用本机。安装版会自动把副本写入公共 Documents 文件夹的 `DailyLedger/ledger-backup.json`，重装后会尝试自动恢复。应用中也可手动备份或从 JSON 文件恢复。
+
+卸载应用会清除应用私有数据；请确认 Documents 里的备份文件已成功更新。Android 系统的文件权限或设备文件管理器限制可能需要手动选择 JSON 文件恢复。
+
+## 新旧版本并存
+
+本地版使用新的 Android 应用 ID `com.wonder.ledger.local`，可以和原来的 `com.wonder.ledger` 同时安装。旧版账单仍保存在旧应用中，不会自动出现在新应用；可通过 JSON 备份文件导入。
