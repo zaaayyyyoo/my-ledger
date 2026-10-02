@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import { Capacitor } from '@capacitor/core';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { Directory, Encoding, Filesystem } from '@capacitor/filesystem';
 
 type Bill = { id: number; type: 'income' | 'expense'; title: string; amount: number; date: string };
@@ -9,6 +9,7 @@ type CalendarCell = { key: string; value: string; day: number; inMonth: boolean 
 const filterOptions: [Range, string][] = [['all','全部'],['today','今天'],['week','近7天'],['month','本月'],['custom','自定义范围']];
 const STORAGE = 'daily_expenses_records';
 const BACKUP_PATH = import.meta.env.VITE_BACKUP_FILE || 'DailyLedger/ledger-backup-local.json';
+const MigrationReader = registerPlugin<{ readLedger: () => Promise<{ data?: string | null }> }>('LedgerMigrationReader');
 const bills = ref<Bill[]>([]);
 const title = ref('');
 const amount = ref('');
@@ -37,6 +38,33 @@ function today() {
 function localRead(): Bill[] {
   try { return JSON.parse(localStorage.getItem(STORAGE) || '[]'); }
   catch { return []; }
+}
+async function writeMigrationSnapshot(records = localRead()) {
+  if (!Capacitor.isNativePlatform()) return;
+  try {
+    await Filesystem.writeFile({
+      directory: Directory.Data, path: 'ledger-migration.json', encoding: Encoding.UTF8,
+      data: JSON.stringify({ format: 'daily-ledger-backup', version: 1, updatedAt: new Date().toISOString(), bills: records })
+    });
+  } catch {
+    // Keep the regular ledger usable if the private migration snapshot cannot be written.
+  }
+}
+async function restoreLegacyLedger() {
+  if (!Capacitor.isNativePlatform() || localRead().length) return false;
+  try {
+    const result = await MigrationReader.readLedger();
+    if (!result.data) return false;
+    const parsed = JSON.parse(result.data);
+    const records = Array.isArray(parsed) ? parsed : parsed?.bills;
+    if (!validBills(records) || !records.length) return false;
+    localStorage.setItem(STORAGE, JSON.stringify(records));
+    await writeMigrationSnapshot(records);
+    backupStatus.value = `已自动迁入旧版的 ${records.length} 笔账单。`;
+    return true;
+  } catch {
+    return false;
+  }
 }
 async function canUsePublicDocuments() {
   if (!Capacitor.isNativePlatform()) return false;
@@ -102,6 +130,7 @@ async function importBackup(event: Event) {
     if (!validBills(records)) throw new Error('文件格式不正确');
     if (!confirm(`将用备份中的 ${records.length} 笔记录覆盖此应用现有账单，继续吗？`)) return;
     localStorage.setItem(STORAGE, JSON.stringify(records));
+    await writeMigrationSnapshot(records);
     page.value = 1;
     await load();
     await writeDeviceBackup(records);
@@ -167,6 +196,7 @@ async function addBill() {
   try {
     const all = localRead(); all.push(bill);
     localStorage.setItem(STORAGE, JSON.stringify(all));
+    await writeMigrationSnapshot(all);
     await writeDeviceBackup(all);
     title.value = ''; amount.value = ''; page.value = 1; await load();
   } catch (e) { error.value = e instanceof Error ? e.message : '保存失败'; }
@@ -177,6 +207,7 @@ async function removeBill(id: number) {
   try {
     const remaining = localRead().filter(b => b.id !== id);
     localStorage.setItem(STORAGE, JSON.stringify(remaining));
+    await writeMigrationSnapshot(remaining);
     await writeDeviceBackup(remaining);
     if (bills.value.length === 1 && page.value > 1) page.value--;
     await load();
@@ -223,10 +254,14 @@ const highlighted = (value: string) => {
 };
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown);
+  await restoreLegacyLedger();
   await restoreDeviceBackup();
   await load();
   const existingBills = localRead();
-  if (existingBills.length) await writeDeviceBackup(existingBills);
+  if (existingBills.length) {
+    await writeMigrationSnapshot(existingBills);
+    await writeDeviceBackup(existingBills);
+  }
 });
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown);
