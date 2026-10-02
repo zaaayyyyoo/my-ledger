@@ -384,13 +384,13 @@ jobs:
           if path.suffix == '.java':
               code = code.replace(
                   'super.onCreate(savedInstanceState);',
-                  'registerPlugin(LedgerMigrationReaderPlugin.class);\\n        super.onCreate(savedInstanceState);',
+                  'registerPlugin(LedgerMigrationReaderPlugin.class);\n        super.onCreate(savedInstanceState);',
                   1
               )
           else:
               code = code.replace(
                   'super.onCreate(savedInstanceState)',
-                  'registerPlugin(LedgerMigrationReaderPlugin::class.java)\\n        super.onCreate(savedInstanceState)',
+                  'registerPlugin(LedgerMigrationReaderPlugin::class.java)\n        super.onCreate(savedInstanceState)',
                   1
               )
           path.write_text(code, encoding='utf-8')
