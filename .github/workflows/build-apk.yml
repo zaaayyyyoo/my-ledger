@@ -10,6 +10,17 @@ jobs:
   build:
     # 固定 Ubuntu 24.04，避免 ubuntu-latest 后续迁移到 26.04 带来的构建环境漂移。
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - variant: migration
+            app_id: com.wonder.ledger
+            app_name: 记账本（旧版数据迁移）
+            backup_file: DailyLedger/ledger-backup-legacy.json
+          - variant: local
+            app_id: com.wonder.ledger.local
+            app_name: 记账本（本地）
+            backup_file: DailyLedger/ledger-backup-local.json
 
     steps:
       - name: 检出仓库代码
@@ -35,6 +46,8 @@ jobs:
           npm install
 
       - name: 构建 Vue 前端并同步到 www
+        env:
+          VITE_BACKUP_FILE: ${{ matrix.backup_file }}
         run: npm run build:web
 
       - name: 注入应用日志功能
@@ -56,6 +69,22 @@ jobs:
               print('Logger injected into build assets')
           else:
               print('Logger already present')
+          PY
+
+      - name: 配置当前构建的应用 ID 和名称
+        env:
+          APP_ID: ${{ matrix.app_id }}
+          APP_NAME: ${{ matrix.app_name }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          path = Path('capacitor.config.json')
+          config = json.loads(path.read_text(encoding='utf-8'))
+          config['appId'] = os.environ['APP_ID']
+          config['appName'] = os.environ['APP_NAME']
+          path.write_text(json.dumps(config, ensure_ascii=False, indent=2) + '\\n', encoding='utf-8')
           PY
 
       - name: 初始化 Android 工程并同步网页
@@ -238,5 +267,5 @@ jobs:
       - name: 上传生成的 APK 文件
         uses: actions/upload-artifact@v6
         with:
-          name: daily-ledger-apk
+          name: daily-ledger-${{ matrix.variant }}-apk
           path: android/app/build/outputs/apk/release/app-release.apk
